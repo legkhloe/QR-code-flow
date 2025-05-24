@@ -7,7 +7,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { 
   QrContentSchema, type QrContentInput, 
   type CustomizationOptionsInput, CustomizationOptionsSchema,
-  type SavedQrConfig, SavedQrConfigArraySchema
+  type SavedQrConfig, SavedQrConfigArraySchema,
+  type BrandKit, BrandKitArraySchema, BrandKitSchema, type BrandKitCustomizationInput
 } from '@/lib/schemas';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,10 +28,11 @@ import { useSearchParams } from 'next/navigation';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Info, ImageIcon, XCircle, Save, Trash2, Edit, QrCode as QrCodeIcon, FolderKanban } from 'lucide-react';
+import { Info, ImageIcon, XCircle, Save, Trash2, Edit, QrCode as QrCodeIcon, FolderKanban, Award, Palette } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-const LOCAL_STORAGE_KEY = 'qrCodeForgeMyQRs';
+const LOCAL_STORAGE_MY_QRS_KEY = 'qrCodeForgeMyQRs';
+const LOCAL_STORAGE_BRAND_KITS_KEY = 'qrCodeForgeBrandKits';
 
 const defaultCustomization: CustomizationOptionsInput = {
   fgColor: '#E0E0E0',
@@ -54,12 +56,19 @@ export default function QrCodeGenerator() {
   const [activeTab, setActiveTab] = useState<EditorTab>('settings');
   const [uploadedImagePreview, setUploadedImagePreview] = useState<string | null>(null);
   
+  // My QRs state
   const [savedQrs, setSavedQrs] = useState<SavedQrConfig[]>([]);
-  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isSaveQrModalOpen, setIsSaveQrModalOpen] = useState(false);
   const [newQrName, setNewQrName] = useState('');
-  const [qrToEdit, setQrToEdit] = useState<SavedQrConfig | null>(null); // For editing name
-
+  const [qrToEdit, setQrToEdit] = useState<SavedQrConfig | null>(null);
   const [qrToDeleteId, setQrToDeleteId] = useState<string | null>(null);
+
+  // Brand Kits state
+  const [brandKits, setBrandKits] = useState<BrandKit[]>([]);
+  const [isSaveBrandKitModalOpen, setIsSaveBrandKitModalOpen] = useState(false);
+  const [newBrandKitName, setNewBrandKitName] = useState('');
+  const [brandKitToEdit, setBrandKitToEdit] = useState<BrandKit | null>(null);
+  const [brandKitToDeleteId, setBrandKitToDeleteId] = useState<string | null>(null);
 
 
   const form = useForm<QrContentInput>({
@@ -69,22 +78,38 @@ export default function QrCodeGenerator() {
     },
   });
 
-  // Load saved QRs from localStorage on mount
+  // Load saved QRs and Brand Kits from localStorage on mount
   useEffect(() => {
     try {
-      const storedQrs = localStorage.getItem(LOCAL_STORAGE_KEY);
+      const storedQrs = localStorage.getItem(LOCAL_STORAGE_MY_QRS_KEY);
       if (storedQrs) {
         const parsedQrs = JSON.parse(storedQrs);
         const validationResult = SavedQrConfigArraySchema.safeParse(parsedQrs);
         if (validationResult.success) {
           setSavedQrs(validationResult.data);
         } else {
-          console.warn("Invalid data in localStorage, clearing My QRs.", validationResult.error);
-          localStorage.removeItem(LOCAL_STORAGE_KEY);
+          console.warn("Invalid My QRs data in localStorage, clearing.", validationResult.error);
+          localStorage.removeItem(LOCAL_STORAGE_MY_QRS_KEY);
         }
       }
     } catch (error) {
-      console.error("Failed to load QRs from localStorage:", error);
+      console.error("Failed to load My QRs from localStorage:", error);
+    }
+
+    try {
+      const storedBrandKits = localStorage.getItem(LOCAL_STORAGE_BRAND_KITS_KEY);
+      if (storedBrandKits) {
+        const parsedKits = JSON.parse(storedBrandKits);
+        const validationResult = BrandKitArraySchema.safeParse(parsedKits);
+        if (validationResult.success) {
+          setBrandKits(validationResult.data);
+        } else {
+          console.warn("Invalid Brand Kits data in localStorage, clearing.", validationResult.error);
+          localStorage.removeItem(LOCAL_STORAGE_BRAND_KITS_KEY);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load Brand Kits from localStorage:", error);
     }
   }, []);
 
@@ -151,8 +176,6 @@ export default function QrCodeGenerator() {
   useEffect(() => {
     if (form.formState.isValid && watchContent && watchContent !== qrValue) {
       setQrValue(watchContent);
-    } else if (!watchContent && qrValue !== "https://example.com") {
-      // setQrValue("https://example.com"); // Commented out to prevent overriding loaded QR value
     }
   }, [watchContent, qrValue, form.formState.isValid]);
 
@@ -171,7 +194,6 @@ export default function QrCodeGenerator() {
 
   const handleAiSuggestionSelect = (suggestion: string) => {
     form.setValue('content', suggestion, { shouldValidate: true });
-    // setQrValue(suggestion); // This will be handled by watchContent effect
     toast({
       title: "Content Updated",
       description: "QR code content set from AI suggestion.",
@@ -246,15 +268,16 @@ export default function QrCodeGenerator() {
     });
   };
 
-  const openSaveModal = (qrToEdit?: SavedQrConfig) => {
-    if (qrToEdit) {
-      setQrToEdit(qrToEdit);
-      setNewQrName(qrToEdit.name);
+  // My QRs Handlers
+  const openSaveQrModal = (qrToEditConfig?: SavedQrConfig) => {
+    if (qrToEditConfig) {
+      setQrToEdit(qrToEditConfig);
+      setNewQrName(qrToEditConfig.name);
     } else {
       setQrToEdit(null);
-      setNewQrName(qrValue.substring(0, 30) || `QR Code ${new Date().toLocaleTimeString()}`);
+      setNewQrName(qrValue.substring(0, 30) || `QR ${new Date().toLocaleTimeString()}`);
     }
-    setIsSaveModalOpen(true);
+    setIsSaveQrModalOpen(true);
   };
 
   const handleSaveQrConfig = () => {
@@ -264,12 +287,12 @@ export default function QrCodeGenerator() {
     }
 
     let updatedQrs: SavedQrConfig[];
-    if (qrToEdit) { // Editing existing QR's name
+    if (qrToEdit) { 
       updatedQrs = savedQrs.map(qr => 
         qr.id === qrToEdit.id ? { ...qr, name: newQrName.trim() } : qr
       );
       toast({ title: "QR Renamed", description: `"${newQrName.trim()}" has been updated.` });
-    } else { // Saving new QR
+    } else { 
       const newSavedQr: SavedQrConfig = {
         id: Date.now().toString(),
         name: newQrName.trim(),
@@ -282,8 +305,8 @@ export default function QrCodeGenerator() {
     }
     
     setSavedQrs(updatedQrs);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedQrs));
-    setIsSaveModalOpen(false);
+    localStorage.setItem(LOCAL_STORAGE_MY_QRS_KEY, JSON.stringify(updatedQrs));
+    setIsSaveQrModalOpen(false);
     setNewQrName('');
     setQrToEdit(null);
   };
@@ -299,7 +322,7 @@ export default function QrCodeGenerator() {
       } else {
         setUploadedImagePreview(null);
       }
-      setActiveTab('settings'); // Switch to settings tab to see content and allow customization
+      setActiveTab('settings');
       toast({ title: "QR Loaded", description: `"${qrToLoad.name}" loaded into editor.` });
     }
   };
@@ -308,12 +331,79 @@ export default function QrCodeGenerator() {
     if (!qrToDeleteId) return;
     const updatedQrs = savedQrs.filter(qr => qr.id !== qrToDeleteId);
     setSavedQrs(updatedQrs);
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedQrs));
+    localStorage.setItem(LOCAL_STORAGE_MY_QRS_KEY, JSON.stringify(updatedQrs));
     toast({ title: "QR Deleted", description: "The QR code has been deleted from My QRs." });
-    setQrToDeleteId(null); // Close dialog by resetting the ID
+    setQrToDeleteId(null);
+  };
+
+  // Brand Kits Handlers
+  const openSaveBrandKitModal = (kitToEdit?: BrandKit) => {
+    if (kitToEdit) {
+      setBrandKitToEdit(kitToEdit);
+      setNewBrandKitName(kitToEdit.name);
+    } else {
+      setBrandKitToEdit(null);
+      setNewBrandKitName(`Brand Kit ${brandKits.length + 1}`);
+    }
+    setIsSaveBrandKitModalOpen(true);
+  };
+
+  const handleSaveBrandKit = () => {
+    if (!newBrandKitName.trim()) {
+      toast({ title: "Error", description: "Brand kit name cannot be empty.", variant: "destructive" });
+      return;
+    }
+    const { size, ...brandKitCustomization } = customization; // Exclude size from brand kit
+
+    let updatedKits: BrandKit[];
+    if (brandKitToEdit) {
+      updatedKits = brandKits.map(kit =>
+        kit.id === brandKitToEdit.id ? { ...kit, name: newBrandKitName.trim(), customization: brandKitCustomization } : kit
+      );
+      toast({ title: "Brand Kit Updated", description: `"${newBrandKitName.trim()}" has been updated.` });
+    } else {
+      const newKit: BrandKit = {
+        id: Date.now().toString(),
+        name: newBrandKitName.trim(),
+        customization: brandKitCustomization,
+        createdAt: new Date().toISOString(),
+      };
+      updatedKits = [...brandKits, newKit];
+      toast({ title: "Brand Kit Saved", description: `"${newKit.name}" has been saved.` });
+    }
+
+    setBrandKits(updatedKits);
+    localStorage.setItem(LOCAL_STORAGE_BRAND_KITS_KEY, JSON.stringify(updatedKits));
+    setIsSaveBrandKitModalOpen(false);
+    setNewBrandKitName('');
+    setBrandKitToEdit(null);
+  };
+
+  const handleApplyBrandKit = (kitCustomization: BrandKitCustomizationInput) => {
+    // Apply all settings from kitCustomization, but keep current QR size
+    setCustomization(prev => ({
+      ...prev, // Keep existing size
+      ...kitCustomization // Apply all other visual styles from the kit
+    }));
+    if (kitCustomization.imageSrc) {
+      setUploadedImagePreview(kitCustomization.imageSrc);
+    } else {
+      setUploadedImagePreview(null);
+    }
+    toast({ title: "Brand Kit Applied", description: "Visual styles updated." });
+  };
+
+  const handleDeleteBrandKit = () => {
+    if (!brandKitToDeleteId) return;
+    const updatedKits = brandKits.filter(kit => kit.id !== brandKitToDeleteId);
+    setBrandKits(updatedKits);
+    localStorage.setItem(LOCAL_STORAGE_BRAND_KITS_KEY, JSON.stringify(updatedKits));
+    toast({ title: "Brand Kit Deleted" });
+    setBrandKitToDeleteId(null);
   };
 
 
+  // Panels
   const SettingsPanel = () => (
     <Card className="h-full shadow-lg">
       <CardHeader>
@@ -452,7 +542,7 @@ export default function QrCodeGenerator() {
             <p>Click the "Save QR" button in the top bar to save your current configuration.</p>
           </div>
         ) : (
-          <ScrollArea className="h-full pr-3"> {/* Adjust height as needed */}
+          <ScrollArea className="h-full pr-3"> 
             <ul className="space-y-3">
               {savedQrs.map((qr) => (
                 <li key={qr.id} className="p-3 border rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors">
@@ -467,7 +557,7 @@ export default function QrCodeGenerator() {
                        </div>
                     </div>
                     <div className="flex space-x-1.5">
-                      <Button variant="outline" size="sm" onClick={() => openSaveModal(qr)} title="Rename">
+                      <Button variant="outline" size="sm" onClick={() => openSaveQrModal(qr)} title="Rename">
                         <Edit className="h-3.5 w-3.5" />
                       </Button>
                       <Button variant="outline" size="sm" onClick={() => handleLoadQr(qr.id)} title="Load">
@@ -488,6 +578,67 @@ export default function QrCodeGenerator() {
       </CardContent>
     </Card>
   );
+
+  const BrandingPanel = () => (
+    <Card className="shadow-lg h-full flex flex-col">
+      <CardHeader>
+        <CardTitle className="flex items-center">
+          <Award className="mr-2 h-5 w-5 text-primary" />
+          Brand Kits
+        </CardTitle>
+        <CardDescription>Save and apply consistent branding to your QR codes.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex-grow overflow-hidden space-y-4">
+        <Button onClick={() => openSaveBrandKitModal()} className="w-full">
+          <Save className="mr-2 h-4 w-4" /> Save Current Style as Brand Kit
+        </Button>
+        {brandKits.length === 0 ? (
+          <div className="text-center text-muted-foreground py-8">
+            <Palette className="mx-auto h-12 w-12 mb-4 opacity-50" />
+            <p>No brand kits saved yet.</p>
+            <p>Customize your QR's appearance and save it as a new kit.</p>
+          </div>
+        ) : (
+          <ScrollArea className="h-[calc(100%-4rem)] pr-3"> {/* Adjust height dynamically */}
+            <ul className="space-y-3">
+              {brandKits.map((kit) => (
+                <li key={kit.id} className="p-3 border rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                       <div className="flex items-center gap-1.5">
+                        <div style={{ backgroundColor: kit.customization.fgColor }} className="w-3 h-3 rounded-sm border border-border"/>
+                        <div style={{ backgroundColor: kit.customization.bgColor }} className="w-3 h-3 rounded-sm border border-border"/>
+                       </div>
+                       <div>
+                          <p className="font-semibold truncate max-w-[120px] sm:max-w-[180px]">{kit.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Created: {new Date(kit.createdAt).toLocaleDateString()}
+                          </p>
+                       </div>
+                    </div>
+                    <div className="flex space-x-1.5">
+                      <Button variant="outline" size="sm" onClick={() => openSaveBrandKitModal(kit)} title="Rename">
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="default" size="sm" onClick={() => handleApplyBrandKit(kit.customization)} title="Apply">
+                        Apply
+                      </Button>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm" onClick={() => setBrandKitToDeleteId(kit.id)} title="Delete">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </ScrollArea>
+        )}
+      </CardContent>
+    </Card>
+  );
+
 
   const PlaceholderPanel = ({ title, description }: { title: string, description: string }) => (
     <Card className="h-full shadow-lg">
@@ -515,7 +666,7 @@ export default function QrCodeGenerator() {
         <div className="p-3 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
           <h1 className="text-xl font-semibold">QR Code Editor</h1>
           <div className="flex items-center space-x-2">
-            <Button variant="outline" onClick={() => openSaveModal()}>
+            <Button variant="outline" onClick={() => openSaveQrModal()}>
               <Save className="mr-2 h-4 w-4" /> Save QR
             </Button>
             <DownloadDropdown onDownload={handleDownloadAction} />
@@ -545,19 +696,19 @@ export default function QrCodeGenerator() {
             {activeTab === 'elements' && <ElementsPanel />}
             {activeTab === 'media' && <MediaPanel />}
             {activeTab === 'myQrs' && <MyQrsPanel />}
+            {activeTab === 'branding' && <BrandingPanel />}
             {activeTab === 'text' && <PlaceholderPanel title="Text Tools" description="Add and customize text overlays on your QR code." />}
             {activeTab === 'uploads' && <PlaceholderPanel title="Uploads" description="Manage your uploaded assets." />}
-            {activeTab === 'branding' && <PlaceholderPanel title="Branding" description="Manage brand kits and assets." />}
             {activeTab === 'advanced' && <PlaceholderPanel title="Advanced Settings" description="Fine-tune advanced QR code parameters." />}
           </aside>
         </div>
       </main>
 
       {/* Save QR Dialog */}
-      <Dialog open={isSaveModalOpen} onOpenChange={setIsSaveModalOpen}>
+      <Dialog open={isSaveQrModalOpen} onOpenChange={setIsSaveQrModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{qrToEdit ? "Rename QR Code" : "Save QR Code"}</DialogTitle>
+            <DialogTitle>{qrToEdit ? "Rename QR Code" : "Save QR Code Configuration"}</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <Label htmlFor="qrName">QR Code Name</Label>
@@ -578,18 +729,59 @@ export default function QrCodeGenerator() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete QR Confirmation Dialog */}
       <AlertDialog open={!!qrToDeleteId} onOpenChange={(open) => !open && setQrToDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete QR Configuration?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete this QR code configuration from your saved list.
+              This action cannot be undone. This will permanently delete this QR code configuration.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setQrToDeleteId(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteQr}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Save Brand Kit Dialog */}
+      <Dialog open={isSaveBrandKitModalOpen} onOpenChange={setIsSaveBrandKitModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{brandKitToEdit ? "Rename Brand Kit" : "Save Brand Kit"}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="brandKitName">Brand Kit Name</Label>
+            <Input 
+              id="brandKitName" 
+              value={newBrandKitName} 
+              onChange={(e) => setNewBrandKitName(e.target.value)}
+              placeholder="e.g., My Company Brand"
+              className="mt-1"
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" onClick={() => { setBrandKitToEdit(null); setNewBrandKitName(''); }}>Cancel</Button>
+            </DialogClose>
+            <Button onClick={handleSaveBrandKit}>{brandKitToEdit ? "Save Changes" : "Save Kit"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Brand Kit Confirmation Dialog */}
+      <AlertDialog open={!!brandKitToDeleteId} onOpenChange={(open) => !open && setBrandKitToDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Brand Kit?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this brand kit.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setBrandKitToDeleteId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteBrandKit}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
