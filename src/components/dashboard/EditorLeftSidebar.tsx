@@ -5,15 +5,15 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import {
-  Settings, // Changed from Settings2
-  Bot, // For AI Assist
-  Edit3, // For Text tool
-  Image as LucideImage, // For Media tool
-  Shapes, // For Elements tool (contains customization now)
+  Settings, 
+  Bot, 
+  Edit3, 
+  Image as LucideImage, 
+  Shapes, 
   UploadCloud,
-  FolderKanban, // My QRs
-  Award, // Branding
-  Wand2, // Generic "Advanced" or "Magic" icon
+  FolderKanban, 
+  Award, 
+  Wand2,
 } from "lucide-react";
 
 export type EditorTab = 
@@ -35,15 +35,15 @@ interface EditorLeftSidebarProps {
 const toolsConfig: Array<{ id: EditorTab; label: string; icon: React.ElementType; section?: string }> = [
   // Core QR Functionality
   { id: 'settings', label: "Content", icon: Settings, section: "QR SETUP" },
-  { id: 'elements', label: "Elements & Style", icon: Shapes, section: "QR SETUP" }, // Customization moved here
+  { id: 'elements', label: "Elements & Style", icon: Shapes, section: "QR SETUP" }, 
+  { id: 'media', label: "Media & Logos", icon: LucideImage, section: "QR SETUP" },
   { id: 'aiAssist', label: "AI Assist", icon: Bot, section: "QR SETUP" },
   
   // Creative Tools (Placeholders for now)
   { id: 'text', label: "Text", icon: Edit3, section: "CREATIVE TOOLS" },
-  { id: 'media', label: "Media & Logos", icon: LucideImage, section: "CREATIVE TOOLS" },
   { id: 'uploads', label: "Uploads", icon: UploadCloud, section: "CREATIVE TOOLS" },
 
-  // Project Management (Placeholders)
+  // Project Management
   { id: 'myQrs', label: "My QRs", icon: FolderKanban, section: "PROJECT" },
   { id: 'branding', label: "Branding", icon: Award, section: "PROJECT" },
   
@@ -87,5 +87,3 @@ export default function EditorLeftSidebar({ activeTab, setActiveTab }: EditorLef
     </aside>
   );
 }
-
-    

@@ -69,8 +69,23 @@ export const CustomizationOptionsSchema = z.object({
   level: z.enum(['L', 'M', 'Q', 'H']),
   size: z.number().min(64).max(1024),
   margin: z.boolean(),
-  imageSrc: z.string().optional().default(''), // Can be a Data URI or empty
-  imageDisplaySize: z.number().min(5).max(50).optional(), // Percentage of QR size
+  imageSrc: z.string().optional().default(''), 
+  imageDisplaySize: z.number().min(5).max(50).optional(),
   imageExcavate: z.boolean().optional(),
 });
 export type CustomizationOptionsInput = z.infer<typeof CustomizationOptionsSchema>;
+
+
+// Schema for a single saved QR configuration
+export const SavedQrConfigSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, "Name cannot be empty"),
+  qrValue: z.string(),
+  customization: CustomizationOptionsSchema,
+  createdAt: z.string().datetime(),
+});
+export type SavedQrConfig = z.infer<typeof SavedQrConfigSchema>;
+
+// Schema for an array of saved QR configurations
+export const SavedQrConfigArraySchema = z.array(SavedQrConfigSchema);
+export type SavedQrConfigArray = z.infer<typeof SavedQrConfigArraySchema>;

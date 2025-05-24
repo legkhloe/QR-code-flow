@@ -4,10 +4,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { QrContentSchema, type QrContentInput, type CustomizationOptionsInput, CustomizationOptionsSchema } from '@/lib/schemas';
+import { 
+  QrContentSchema, type QrContentInput, 
+  type CustomizationOptionsInput, CustomizationOptionsSchema,
+  type SavedQrConfig, SavedQrConfigArraySchema
+} from '@/lib/schemas';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
@@ -21,7 +25,12 @@ import EditorLeftSidebar, { type EditorTab } from './EditorLeftSidebar';
 import DownloadDropdown from './DownloadDropdown';
 import { useSearchParams } from 'next/navigation';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Info, ImageIcon, XCircle } from 'lucide-react'; // Added XCircle
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Info, ImageIcon, XCircle, Save, Trash2, Edit, QrCode as QrCodeIcon, FolderKanban } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+const LOCAL_STORAGE_KEY = 'qrCodeForgeMyQRs';
 
 const defaultCustomization: CustomizationOptionsInput = {
   fgColor: '#E0E0E0',
@@ -30,7 +39,7 @@ const defaultCustomization: CustomizationOptionsInput = {
   size: 256,
   margin: true,
   imageSrc: '',
-  imageDisplaySize: 20, // Default 20% of QR code size
+  imageDisplaySize: 20, 
   imageExcavate: true,
 };
 
@@ -45,12 +54,39 @@ export default function QrCodeGenerator() {
   const [activeTab, setActiveTab] = useState<EditorTab>('settings');
   const [uploadedImagePreview, setUploadedImagePreview] = useState<string | null>(null);
   
+  const [savedQrs, setSavedQrs] = useState<SavedQrConfig[]>([]);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [newQrName, setNewQrName] = useState('');
+  const [qrToEdit, setQrToEdit] = useState<SavedQrConfig | null>(null); // For editing name
+
+  const [qrToDeleteId, setQrToDeleteId] = useState<string | null>(null);
+
+
   const form = useForm<QrContentInput>({
     resolver: zodResolver(QrContentSchema),
     defaultValues: {
       content: qrValue,
     },
   });
+
+  // Load saved QRs from localStorage on mount
+  useEffect(() => {
+    try {
+      const storedQrs = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (storedQrs) {
+        const parsedQrs = JSON.parse(storedQrs);
+        const validationResult = SavedQrConfigArraySchema.safeParse(parsedQrs);
+        if (validationResult.success) {
+          setSavedQrs(validationResult.data);
+        } else {
+          console.warn("Invalid data in localStorage, clearing My QRs.", validationResult.error);
+          localStorage.removeItem(LOCAL_STORAGE_KEY);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load QRs from localStorage:", error);
+    }
+  }, []);
 
   useEffect(() => {
     const initialQrValue = searchParams.get('qrValue');
@@ -116,7 +152,7 @@ export default function QrCodeGenerator() {
     if (form.formState.isValid && watchContent && watchContent !== qrValue) {
       setQrValue(watchContent);
     } else if (!watchContent && qrValue !== "https://example.com") {
-      setQrValue("https://example.com"); 
+      // setQrValue("https://example.com"); // Commented out to prevent overriding loaded QR value
     }
   }, [watchContent, qrValue, form.formState.isValid]);
 
@@ -135,6 +171,7 @@ export default function QrCodeGenerator() {
 
   const handleAiSuggestionSelect = (suggestion: string) => {
     form.setValue('content', suggestion, { shouldValidate: true });
+    // setQrValue(suggestion); // This will be handled by watchContent effect
     toast({
       title: "Content Updated",
       description: "QR code content set from AI suggestion.",
@@ -171,16 +208,6 @@ export default function QrCodeGenerator() {
         });
         return;
       }
-      // Optional: File size check
-      // if (file.size > 1 * 1024 * 1024) { // 1MB limit
-      //   toast({
-      //     title: "File Too Large",
-      //     description: "Please upload an image smaller than 1MB.",
-      //     variant: "destructive",
-      //   });
-      //   return;
-      // }
-
       const reader = new FileReader();
       reader.onloadend = () => {
         const dataUri = reader.result as string;
@@ -203,7 +230,7 @@ export default function QrCodeGenerator() {
       reader.readAsDataURL(file);
     }
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""; // Reset file input to allow re-uploading same file
+      fileInputRef.current.value = ""; 
     }
   };
 
@@ -217,6 +244,73 @@ export default function QrCodeGenerator() {
       title: "Image Removed",
       description: "The embedded image has been cleared.",
     });
+  };
+
+  const openSaveModal = (qrToEdit?: SavedQrConfig) => {
+    if (qrToEdit) {
+      setQrToEdit(qrToEdit);
+      setNewQrName(qrToEdit.name);
+    } else {
+      setQrToEdit(null);
+      setNewQrName(qrValue.substring(0, 30) || `QR Code ${new Date().toLocaleTimeString()}`);
+    }
+    setIsSaveModalOpen(true);
+  };
+
+  const handleSaveQrConfig = () => {
+    if (!newQrName.trim()) {
+      toast({ title: "Error", description: "QR Code name cannot be empty.", variant: "destructive" });
+      return;
+    }
+
+    let updatedQrs: SavedQrConfig[];
+    if (qrToEdit) { // Editing existing QR's name
+      updatedQrs = savedQrs.map(qr => 
+        qr.id === qrToEdit.id ? { ...qr, name: newQrName.trim() } : qr
+      );
+      toast({ title: "QR Renamed", description: `"${newQrName.trim()}" has been updated.` });
+    } else { // Saving new QR
+      const newSavedQr: SavedQrConfig = {
+        id: Date.now().toString(),
+        name: newQrName.trim(),
+        qrValue: qrValue,
+        customization: customization,
+        createdAt: new Date().toISOString(),
+      };
+      updatedQrs = [...savedQrs, newSavedQr];
+      toast({ title: "QR Saved", description: `"${newSavedQr.name}" has been saved to My QRs.` });
+    }
+    
+    setSavedQrs(updatedQrs);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedQrs));
+    setIsSaveModalOpen(false);
+    setNewQrName('');
+    setQrToEdit(null);
+  };
+
+  const handleLoadQr = (id: string) => {
+    const qrToLoad = savedQrs.find(qr => qr.id === id);
+    if (qrToLoad) {
+      setQrValue(qrToLoad.qrValue);
+      form.setValue('content', qrToLoad.qrValue);
+      setCustomization(qrToLoad.customization);
+      if (qrToLoad.customization.imageSrc) {
+        setUploadedImagePreview(qrToLoad.customization.imageSrc);
+      } else {
+        setUploadedImagePreview(null);
+      }
+      setActiveTab('settings'); // Switch to settings tab to see content and allow customization
+      toast({ title: "QR Loaded", description: `"${qrToLoad.name}" loaded into editor.` });
+    }
+  };
+  
+  const handleDeleteQr = () => {
+    if (!qrToDeleteId) return;
+    const updatedQrs = savedQrs.filter(qr => qr.id !== qrToDeleteId);
+    setSavedQrs(updatedQrs);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(updatedQrs));
+    toast({ title: "QR Deleted", description: "The QR code has been deleted from My QRs." });
+    setQrToDeleteId(null); // Close dialog by resetting the ID
   };
 
 
@@ -258,11 +352,15 @@ export default function QrCodeGenerator() {
   );
 
   const AiAssistPanel = () => (
-    <AiSuggestions onSuggestionSelect={handleAiSuggestionSelect} />
+     <Card className="h-full shadow-lg">
+        <AiSuggestions onSuggestionSelect={handleAiSuggestionSelect} />
+     </Card>
   );
 
   const ElementsPanel = () => (
-    <CustomizationPanel options={customization} onOptionsChange={handleCustomizationChange} />
+    <Card className="h-full shadow-lg">
+      <CustomizationPanel options={customization} onOptionsChange={handleCustomizationChange} />
+    </Card>
   );
 
   const MediaPanel = () => (
@@ -337,6 +435,60 @@ export default function QrCodeGenerator() {
     </Card>
   );
 
+  const MyQrsPanel = () => (
+    <Card className="shadow-lg h-full flex flex-col">
+      <CardHeader>
+        <CardTitle className="flex items-center">
+          <FolderKanban className="mr-2 h-5 w-5 text-primary" />
+          My Saved QR Codes
+        </CardTitle>
+        <CardDescription>Load, rename, or delete your previously saved QR code configurations.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex-grow overflow-hidden">
+        {savedQrs.length === 0 ? (
+          <div className="text-center text-muted-foreground py-8">
+            <QrCodeIcon className="mx-auto h-12 w-12 mb-4 opacity-50" />
+            <p>You haven't saved any QR codes yet.</p>
+            <p>Click the "Save QR" button in the top bar to save your current configuration.</p>
+          </div>
+        ) : (
+          <ScrollArea className="h-full pr-3"> {/* Adjust height as needed */}
+            <ul className="space-y-3">
+              {savedQrs.map((qr) => (
+                <li key={qr.id} className="p-3 border rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                       <QrCodeIcon className="h-6 w-6 text-primary flex-shrink-0" />
+                       <div>
+                          <p className="font-semibold truncate max-w-[150px] sm:max-w-[200px]">{qr.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Saved: {new Date(qr.createdAt).toLocaleDateString()}
+                          </p>
+                       </div>
+                    </div>
+                    <div className="flex space-x-1.5">
+                      <Button variant="outline" size="sm" onClick={() => openSaveModal(qr)} title="Rename">
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => handleLoadQr(qr.id)} title="Load">
+                        Load
+                      </Button>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm" onClick={() => setQrToDeleteId(qr.id)} title="Delete">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </ScrollArea>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   const PlaceholderPanel = ({ title, description }: { title: string, description: string }) => (
     <Card className="h-full shadow-lg">
       <CardHeader>
@@ -362,7 +514,12 @@ export default function QrCodeGenerator() {
       <main className="flex-1 flex flex-col overflow-hidden">
         <div className="p-3 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
           <h1 className="text-xl font-semibold">QR Code Editor</h1>
-          <DownloadDropdown onDownload={handleDownloadAction} />
+          <div className="flex items-center space-x-2">
+            <Button variant="outline" onClick={() => openSaveModal()}>
+              <Save className="mr-2 h-4 w-4" /> Save QR
+            </Button>
+            <DownloadDropdown onDownload={handleDownloadAction} />
+          </div>
         </div>
 
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-7 gap-4 p-4 overflow-y-auto">
@@ -387,14 +544,56 @@ export default function QrCodeGenerator() {
             {activeTab === 'aiAssist' && <AiAssistPanel />}
             {activeTab === 'elements' && <ElementsPanel />}
             {activeTab === 'media' && <MediaPanel />}
+            {activeTab === 'myQrs' && <MyQrsPanel />}
             {activeTab === 'text' && <PlaceholderPanel title="Text Tools" description="Add and customize text overlays on your QR code." />}
             {activeTab === 'uploads' && <PlaceholderPanel title="Uploads" description="Manage your uploaded assets." />}
-            {activeTab === 'myQrs' && <PlaceholderPanel title="My QRs" description="Browse and manage your saved QR codes." />}
             {activeTab === 'branding' && <PlaceholderPanel title="Branding" description="Manage brand kits and assets." />}
             {activeTab === 'advanced' && <PlaceholderPanel title="Advanced Settings" description="Fine-tune advanced QR code parameters." />}
           </aside>
         </div>
       </main>
+
+      {/* Save QR Dialog */}
+      <Dialog open={isSaveModalOpen} onOpenChange={setIsSaveModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{qrToEdit ? "Rename QR Code" : "Save QR Code"}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="qrName">QR Code Name</Label>
+            <Input 
+              id="qrName" 
+              value={newQrName} 
+              onChange={(e) => setNewQrName(e.target.value)}
+              placeholder="e.g., My Website Link"
+              className="mt-1"
+            />
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" onClick={() => { setQrToEdit(null); setNewQrName('');}}>Cancel</Button>
+            </DialogClose>
+            <Button onClick={handleSaveQrConfig}>{qrToEdit ? "Save Changes" : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!qrToDeleteId} onOpenChange={(open) => !open && setQrToDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete this QR code configuration from your saved list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setQrToDeleteId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteQr}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
