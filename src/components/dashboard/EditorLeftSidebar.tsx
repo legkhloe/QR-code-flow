@@ -5,103 +5,87 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import {
-  Search,
-  FolderKanban,
-  Award,
+  Settings, // Changed from Settings2
+  Bot, // For AI Assist
+  Edit3, // For Text tool
+  Image as LucideImage, // For Media tool
+  Shapes, // For Elements tool (contains customization now)
   UploadCloud,
-  LayoutGrid,
-  Image as LucideImage, // Renamed to avoid conflict with Next/Image
-  Type,
-  Shapes,
-  Settings2,
-  Palette,
-  Bot,
+  FolderKanban, // My QRs
+  Award, // Branding
+  Wand2, // Generic "Advanced" or "Magic" icon
 } from "lucide-react";
 
-const mainTools = [
-  { icon: Search, label: "Search", action: () => console.log("Search clicked") },
-  { icon: LayoutGrid, label: "Templates", action: () => console.log("Templates clicked") },
-  { icon: Type, label: "Text", action: () => console.log("Text clicked") },
-  { icon: LucideImage, label: "Media", action: () => console.log("Media clicked") },
-  { icon: Shapes, label: "Elements", action: () => console.log("Elements clicked") },
-  { icon: UploadCloud, label: "Uploads", action: () => console.log("Uploads clicked") },
+export type EditorTab = 
+  | 'settings' 
+  | 'aiAssist' 
+  | 'text' 
+  | 'media' 
+  | 'elements' 
+  | 'uploads' 
+  | 'myQrs' 
+  | 'branding'
+  | 'advanced';
+
+interface EditorLeftSidebarProps {
+  activeTab: EditorTab;
+  setActiveTab: (tab: EditorTab) => void;
+}
+
+const toolsConfig: Array<{ id: EditorTab; label: string; icon: React.ElementType; section?: string }> = [
+  // Core QR Functionality
+  { id: 'settings', label: "Content", icon: Settings, section: "QR SETUP" },
+  { id: 'elements', label: "Elements & Style", icon: Shapes, section: "QR SETUP" }, // Customization moved here
+  { id: 'aiAssist', label: "AI Assist", icon: Bot, section: "QR SETUP" },
+  
+  // Creative Tools (Placeholders for now)
+  { id: 'text', label: "Text", icon: Edit3, section: "CREATIVE TOOLS" },
+  { id: 'media', label: "Media & Logos", icon: LucideImage, section: "CREATIVE TOOLS" },
+  { id: 'uploads', label: "Uploads", icon: UploadCloud, section: "CREATIVE TOOLS" },
+
+  // Project Management (Placeholders)
+  { id: 'myQrs', label: "My QRs", icon: FolderKanban, section: "PROJECT" },
+  { id: 'branding', label: "Branding", icon: Award, section: "PROJECT" },
+  
+  // Advanced (Placeholder)
+  { id: 'advanced', label: "Advanced", icon: Wand2, section: "OTHER" },
 ];
 
-const projectTools = [
-  { icon: FolderKanban, label: "My QRs", action: () => console.log("My QRs clicked") },
-  { icon: Award, label: "Branding", action: () => console.log("Branding clicked") },
-];
 
-const customizationTools = [
-   { icon: Palette, label: "Appearance", action: () => console.log("Appearance clicked - (handled by right panel)") },
-   { icon: Bot, label: "AI Assist", action: () => console.log("AI Assist clicked - (handled by right panel)") },
-   { icon: Settings2, label: "Advanced", action: () => console.log("Advanced settings clicked") },
-];
+export default function EditorLeftSidebar({ activeTab, setActiveTab }: EditorLeftSidebarProps) {
+  const currentSections = Array.from(new Set(toolsConfig.map(tool => tool.section)));
 
-
-export default function EditorLeftSidebar() {
-  // For now, actions are console logs. In a real app, these would trigger UI changes or navigation.
   return (
     <aside className="w-20 lg:w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col">
       <ScrollArea className="flex-1">
-        <nav className="p-2 lg:p-4 space-y-3">
-          {/* Main Tools */}
-          <div>
-            {mainTools.map((tool) => (
-              <Button
-                key={tool.label}
-                variant="ghost"
-                className="w-full justify-start items-center text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground mb-1"
-                onClick={tool.action}
-                title={tool.label}
-              >
-                <tool.icon className="h-5 w-5 mr-0 lg:mr-3 flex-shrink-0" />
-                <span className="hidden lg:inline truncate">{tool.label}</span>
-              </Button>
-            ))}
-          </div>
-          
-          {/* Separator */}
-          <hr className="border-sidebar-border my-3" />
-
-          {/* Project/User Specific Tools */}
-           <div>
-            {projectTools.map((tool) => (
-              <Button
-                key={tool.label}
-                variant="ghost"
-                className="w-full justify-start items-center text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground mb-1"
-                onClick={tool.action}
-                title={tool.label}
-              >
-                <tool.icon className="h-5 w-5 mr-0 lg:mr-3 flex-shrink-0" />
-                <span className="hidden lg:inline truncate">{tool.label}</span>
-              </Button>
-            ))}
-          </div>
-
-          {/* Separator */}
-          <hr className="border-sidebar-border my-3" />
-
-          {/* Customization related (might be more conceptual for left bar) */}
-           <div>
-            <p className="text-xs text-muted-foreground px-2 py-1 hidden lg:block">QR SETTINGS</p>
-            {customizationTools.map((tool) => (
-              <Button
-                key={tool.label}
-                variant="ghost"
-                className="w-full justify-start items-center text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground mb-1"
-                onClick={tool.action}
-                title={tool.label}
-              >
-                <tool.icon className="h-5 w-5 mr-0 lg:mr-3 flex-shrink-0" />
-                <span className="hidden lg:inline truncate">{tool.label}</span>
-              </Button>
-            ))}
-          </div>
+        <nav className="p-2 lg:p-4 space-y-1">
+          {currentSections.map(sectionName => (
+            <div key={sectionName} className="space-y-1 mb-3">
+              {sectionName && <p className="text-xs text-muted-foreground px-2 py-1 hidden lg:block uppercase tracking-wider">{sectionName}</p>}
+              {toolsConfig.filter(tool => tool.section === sectionName).map((tool) => (
+                <Button
+                  key={tool.id}
+                  variant={activeTab === tool.id ? "secondary" : "ghost"}
+                  className={cn(
+                    "w-full justify-start items-center text-sidebar-foreground mb-1",
+                    activeTab === tool.id 
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground hover:bg-sidebar-accent/90" 
+                      : "hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                  )}
+                  onClick={() => setActiveTab(tool.id)}
+                  title={tool.label}
+                >
+                  <tool.icon className="h-5 w-5 mr-0 lg:mr-3 flex-shrink-0" />
+                  <span className="hidden lg:inline truncate">{tool.label}</span>
+                </Button>
+              ))}
+              {currentSections.indexOf(sectionName) < currentSections.length -1 && sectionName && <hr className="border-sidebar-border my-3 hidden lg:block"/>}
+            </div>
+          ))}
         </nav>
       </ScrollArea>
-      {/* Footer could go here if needed */}
     </aside>
   );
 }
+
+    
