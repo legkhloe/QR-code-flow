@@ -13,14 +13,14 @@ import { useToast } from '@/hooks/use-toast';
 import QrCodePreview from './QrCodePreview';
 import CustomizationPanel from './CustomizationPanel';
 import AiSuggestions from './AiSuggestions';
-import { Separator } from '../ui/separator';
+import EditorLeftSidebar from './EditorLeftSidebar'; // New import
 import { useSearchParams } from 'next/navigation';
 
 const defaultCustomization: CustomizationOptionsInput = {
   fgColor: '#E0E0E0',
   bgColor: '#1E1E1E',
   level: 'M',
-  size: 256,
+  size: 256, // Default internal size, preview component might cap it
   margin: true,
 };
 
@@ -75,7 +75,7 @@ export default function QrCodeGenerator() {
         });
       }
     }
-    if (loadedFromParams) {
+    if (loadedFromParams && initialQrValue) { // Only toast if qrValue actually loaded
        toast({
         title: "QR Code Loaded",
         description: "Your QR code has been loaded into the editor.",
@@ -87,10 +87,13 @@ export default function QrCodeGenerator() {
 
   const watchContent = form.watch('content');
   useEffect(() => {
-    if (watchContent && watchContent !== qrValue) {
+    // Update QR value only if form content is valid and different
+    if (form.formState.isValid && watchContent && watchContent !== qrValue) {
       setQrValue(watchContent);
+    } else if (!watchContent && qrValue !== "https://example.com") { // Clear preview if content is empty
+      setQrValue("https://example.com"); // or some placeholder
     }
-  }, [watchContent, qrValue]);
+  }, [watchContent, qrValue, form.formState.isValid]);
 
   const onSubmit = (data: QrContentInput) => {
     setQrValue(data.content);
@@ -105,67 +108,91 @@ export default function QrCodeGenerator() {
   };
 
   const handleAiSuggestionSelect = (suggestion: string) => {
-    form.setValue('content', suggestion);
+    form.setValue('content', suggestion, { shouldValidate: true }); // Ensure validation on AI suggestion
     setQrValue(suggestion); 
     toast({
       title: "Content Updated",
       description: "QR code content set from AI suggestion.",
     });
   };
+  
+  // Determine preview size, ensuring it's reasonable for the editor.
+  // The QrCodePreview component itself might handle scaling for download.
+  const editorPreviewSize = Math.max(128, Math.min(customization.size, 320));
+
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-      <div className="lg:col-span-2 space-y-8">
-        <Card className="shadow-xl">
-          <CardHeader>
-            <CardTitle className="text-2xl">Advanced QR Code Editor</CardTitle>
-            <CardDescription>Fine-tune your QR code content and appearance.</CardDescription>
-          </CardHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-              <CardContent className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="content"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel htmlFor="qr-content">Content (URL, Text, WiFi, vCard, etc.)</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          id="qr-content"
-                          placeholder="e.g., https://yourwebsite.com or 'Hello World!' or WIFI:S:MyNet;T:WPA;P:MyPass;;"
-                          rows={6}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full sm:w-auto">
-                  Update Preview
-                </Button>
-              </CardContent>
-            </form>
-          </Form>
-        </Card>
-        
-        <Separator />
-        
-        <AiSuggestions onSuggestionSelect={handleAiSuggestionSelect} />
-      </div>
+    <div className="flex flex-1 w-full h-full bg-background"> {/* Outer container */}
+      <EditorLeftSidebar />
 
-      <div className="lg:col-span-1 space-y-8 lg:sticky lg:top-24">
-        <QrCodePreview
-          value={qrValue}
-          size={customization.size}
-          fgColor={customization.fgColor}
-          bgColor={customization.bgColor}
-          level={customization.level}
-          includeMargin={customization.margin}
-        />
-        <CustomizationPanel options={customization} onOptionsChange={handleCustomizationChange} />
-      </div>
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Top action bar */}
+        <div className="p-3 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
+          <h1 className="text-xl font-semibold">QR Code Editor</h1>
+          {/* Future global actions like Save/Load, Share could go here */}
+        </div>
+
+        {/* Content grid (Center canvas + Right properties) */}
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-7 gap-4 p-4 overflow-y-auto">
+          
+          {/* Center Canvas Area */}
+          <div className="lg:col-span-5 bg-muted/10 p-4 md:p-6 rounded-lg flex flex-col items-center justify-start space-y-6 shadow-inner">
+            <Card className="w-full shadow-lg">
+              <CardHeader>
+                <CardTitle>QR Code Content</CardTitle>
+                <CardDescription>Enter the data for your QR code. This could be a URL, text, Wi-Fi credentials (e.g., WIFI:S:MyNet;T:WPA;P:MyPass;;), vCard info, etc.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="content"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel htmlFor="qr-content-editor" className="sr-only">Content</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              id="qr-content-editor"
+                              placeholder="e.g., https://yourwebsite.com or 'Hello World!'"
+                              rows={4}
+                              {...field}
+                              className="text-base bg-input focus:bg-background"
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button type="submit" className="w-full sm:w-auto">
+                      Update Preview
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+            
+            <div className="w-full flex justify-center items-center mt-4 p-4 bg-card rounded-md shadow-lg">
+              <div className="max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg">
+                 <QrCodePreview
+                  value={qrValue}
+                  size={editorPreviewSize}
+                  fgColor={customization.fgColor}
+                  bgColor={customization.bgColor}
+                  level={customization.level}
+                  includeMargin={customization.margin}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Right Properties Panel */}
+          <aside className="lg:col-span-2 space-y-6 overflow-y-auto p-1">
+            <CustomizationPanel options={customization} onOptionsChange={handleCustomizationChange} />
+            <AiSuggestions onSuggestionSelect={handleAiSuggestionSelect} />
+          </aside>
+        </div>
+      </main>
     </div>
   );
 }
