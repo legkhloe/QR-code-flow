@@ -1,10 +1,11 @@
+
 import AuthForm from '@/components/auth/AuthForm';
 import { appName } from '@/lib/config';
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: `Authentication | ${appName}`,
-  description: `Login or Sign Up for ${appName}.`,
+  title: `Login | ${appName}`,
+  description: `Login to ${appName}.`,
 };
 
 export default function AuthPage() {

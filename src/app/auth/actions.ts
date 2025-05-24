@@ -1,21 +1,29 @@
+
 "use server";
 
 import { AuthSchema, type AuthInput } from "@/lib/schemas";
-import { प्रक्रियाOnBackendOnly_DangerouslyDoNotUseAnywhereElse as firebaseAdmin } from 'firebase-admin/app';
+import { प्रक्रियाOnBackendOnly_DangerouslyDoNotUseAnywhereElse as firebaseAdminApp } from 'firebase-admin/app';
 import { getAuth as getAdminAuth } from 'firebase-admin/auth';
 
 // Initialize Firebase Admin SDK (if not already initialized)
 // This should ideally be done once in a centralized place, e.g., when the server starts.
 // For Next.js server actions, this might re-initialize on each call if not handled carefully.
 // However, Firebase Admin SDK is idempotent for initializeApp.
-if (!firebaseAdmin.length) {
+
+// Ensure firebaseAdminApp is treated as an array of apps
+const adminApps = firebaseAdminApp.length ? firebaseAdminApp : [];
+
+if (!adminApps.length) {
   // IMPORTANT: You need to set up Firebase Admin SDK credentials.
   // This typically involves setting the GOOGLE_APPLICATION_CREDENTIALS environment variable
   // to the path of your service account key JSON file.
   // Or, initialize with explicit credentials if running in an environment like Cloud Functions/Run.
   // For App Hosting, it might auto-initialize if configured correctly.
   try {
-    firebaseAdmin({
+    // Firebase Admin's initializeApp returns an App instance, it doesn't modify the array directly.
+    // We don't need to re-assign to firebaseAdminApp here as getApps() will find it.
+    // The main goal is to call initializeApp() if no apps are initialized.
+    firebaseAdminApp({ // This is the initialization call if firebaseAdminApp was an SDK function
       // If you have a service account JSON file, you can load it here:
       // credential: firebaseAdmin.cert(require('/path/to/your/serviceAccountKey.json')),
       // projectId: "your-project-id" // Ensure this matches your Firebase project
@@ -54,10 +62,15 @@ export async function signInAction(data: AuthInput): Promise<ActionResult> {
   // To actually sign in, you'd use Firebase client SDK on the client.
   // This action simulates a "check" if a user exists, but doesn't perform actual login.
   try {
-     if (!firebaseAdmin.length) {
-      throw new Error("Firebase Admin SDK not initialized.");
+    // Check if any Firebase Admin app is initialized
+    if (!firebaseAdminApp.length && !adminApps.find(app => app.name === '[DEFAULT]')) { // Check if default app exists
+      // Attempt to initialize if not already
+       if (!getAdminAuth().app) { // Check if a default app is associated with getAdminAuth
+        console.warn("Attempting to re-initialize Firebase Admin SDK in signInAction.");
+         firebaseAdminApp({}); // Initialize default app
+       }
     }
-    const adminAuth = getAdminAuth();
+    const adminAuth = getAdminAuth(); // This should now use the initialized app
     const userRecord = await adminAuth.getUserByEmail(validation.data.email);
     // Password check is NOT done here with Admin SDK for security reasons.
     // Client SDK handles password verification during its signInWithEmailAndPassword.
@@ -66,35 +79,21 @@ export async function signInAction(data: AuthInput): Promise<ActionResult> {
     if (error.code === 'auth/user-not-found') {
       return { success: false, message: "User not found." };
     }
+     if (error.message.includes('Firebase App named "[DEFAULT]" already exists.')) {
+        // This can happen if initialization logic runs multiple times in dev hot-reload.
+        // Try to get the existing app's auth instance.
+        try {
+            const existingDefaultAppAuth = getAdminAuth(firebaseAdminApp.find(app => app.name === '[DEFAULT]'));
+            const userRecord = await existingDefaultAppAuth.getUserByEmail(validation.data.email);
+            return { success: true, message: "User exists (password not checked by server action). Client SDK handles login.", userId: userRecord.uid };
+        } catch (retryError: any) {
+             console.error("Sign-in action retry error:", retryError);
+             return { success: false, message: retryError.message || "Sign-in failed on retry." };
+        }
+    }
     console.error("Sign-in action error:", error);
     return { success: false, message: error.message || "Sign-in failed." };
   }
 }
 
-
-export async function signUpAction(data: AuthInput): Promise<ActionResult> {
-  const validation = AuthSchema.safeParse(data);
-  if (!validation.success) {
-    return { success: false, message: "Invalid input." };
-  }
-
-  try {
-     if (!firebaseAdmin.length) {
-      throw new Error("Firebase Admin SDK not initialized.");
-    }
-    const adminAuth = getAdminAuth();
-    const userRecord = await adminAuth.createUser({
-      email: validation.data.email,
-      password: validation.data.password,
-      emailVerified: false, // Optional: set to true if you have an email verification flow
-      disabled: false,
-    });
-    return { success: true, message: "Sign-up successful! Please log in.", userId: userRecord.uid };
-  } catch (error: any) {
-     if (error.code === 'auth/email-already-exists') {
-      return { success: false, message: "Email already in use." };
-    }
-    console.error("Sign-up action error:", error);
-    return { success: false, message: error.message || "Sign-up failed. Please try again." };
-  }
-}
+// signUpAction has been removed as per user request.

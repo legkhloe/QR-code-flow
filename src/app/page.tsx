@@ -1,6 +1,7 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, Palette, ScanQrCode, Sparkles } from "lucide-react";
+import { CheckCircle, Palette, ScanQrCode, Sparkles, LogIn } from "lucide-react"; // Added LogIn
 import Image from "next/image";
 import Link from "next/link";
 import { appName } from '@/lib/config';
@@ -108,11 +109,11 @@ export default function HomePage() {
       <section className="text-center py-16">
         <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to Forge Your QR Codes?</h2>
         <p className="max-w-xl mx-auto text-lg text-muted-foreground mb-8">
-          Join thousands of users who trust {appName} for their QR code needs. Sign up today and start creating!
+          Log in to access your dashboard and start creating amazing QR codes with {appName}!
         </p>
         <Link href="/auth" passHref legacyBehavior>
           <Button size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground">
-            Sign Up Now
+            <LogIn className="mr-2 h-5 w-5" /> Login to Get Started
           </Button>
         </Link>
       </section>

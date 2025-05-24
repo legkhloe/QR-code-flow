@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -12,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, User as UserIcon, LayoutDashboard, Home } from 'lucide-react';
+import { LogOut, User as UserIcon, LayoutDashboard, Home, LogIn } from 'lucide-react'; // Added LogIn
 import { useAuth } from '@/components/providers/AuthProvider';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
@@ -87,7 +88,9 @@ export default function Header() {
             </DropdownMenu>
           ) : (
             <Link href="/auth" passHref legacyBehavior>
-              <Button>Login / Sign Up</Button>
+              <Button>
+                <LogIn className="mr-2 h-4 w-4" /> Login
+              </Button>
             </Link>
           )}
         </div>
