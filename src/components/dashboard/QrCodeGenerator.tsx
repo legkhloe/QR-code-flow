@@ -21,7 +21,7 @@ import EditorLeftSidebar, { type EditorTab } from './EditorLeftSidebar';
 import DownloadDropdown from './DownloadDropdown';
 import { useSearchParams } from 'next/navigation';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Info, Image as ImageIcon } from 'lucide-react';
+import { Info, ImageIcon, XCircle } from 'lucide-react'; // Added XCircle
 
 const defaultCustomization: CustomizationOptionsInput = {
   fgColor: '#E0E0E0',
@@ -38,10 +38,12 @@ export default function QrCodeGenerator() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const qrPreviewRef = useRef<QrCodePreviewHandles>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [qrValue, setQrValue] = useState<string>("https://example.com");
   const [customization, setCustomization] = useState<CustomizationOptionsInput>(defaultCustomization);
   const [activeTab, setActiveTab] = useState<EditorTab>('settings');
+  const [uploadedImagePreview, setUploadedImagePreview] = useState<string | null>(null);
   
   const form = useForm<QrContentInput>({
     resolver: zodResolver(QrContentSchema),
@@ -57,10 +59,9 @@ export default function QrCodeGenerator() {
     const level = searchParams.get('level') as CustomizationOptionsInput['level'] | null;
     const size = searchParams.get('size');
     const margin = searchParams.get('margin');
-    const imageSrc = searchParams.get('imageSrc');
+    const imageSrcParam = searchParams.get('imageSrc');
     const imageDisplaySize = searchParams.get('imageDisplaySize');
     const imageExcavate = searchParams.get('imageExcavate');
-
 
     let loadedFromParams = false;
 
@@ -76,7 +77,13 @@ export default function QrCodeGenerator() {
     if (level && ['L', 'M', 'Q', 'H'].includes(level)) newCustomization.level = level;
     if (size && !isNaN(parseInt(size))) newCustomization.size = parseInt(size);
     if (margin !== null) newCustomization.margin = margin === 'true';
-    if (imageSrc) newCustomization.imageSrc = imageSrc;
+    
+    if (imageSrcParam) {
+      newCustomization.imageSrc = imageSrcParam;
+      if (imageSrcParam.startsWith('data:image/')) {
+        setUploadedImagePreview(imageSrcParam);
+      }
+    }
     if (imageDisplaySize && !isNaN(parseInt(imageDisplaySize))) newCustomization.imageDisplaySize = parseInt(imageDisplaySize);
     if (imageExcavate !== null) newCustomization.imageExcavate = imageExcavate === 'true';
     
@@ -109,7 +116,6 @@ export default function QrCodeGenerator() {
     if (form.formState.isValid && watchContent && watchContent !== qrValue) {
       setQrValue(watchContent);
     } else if (!watchContent && qrValue !== "https://example.com") {
-      // Clear QR value if textarea is empty, revert to placeholder
       setQrValue("https://example.com"); 
     }
   }, [watchContent, qrValue, form.formState.isValid]);
@@ -129,7 +135,6 @@ export default function QrCodeGenerator() {
 
   const handleAiSuggestionSelect = (suggestion: string) => {
     form.setValue('content', suggestion, { shouldValidate: true });
-    // No need to call setQrValue here, the useEffect on watchContent will handle it
     toast({
       title: "Content Updated",
       description: "QR code content set from AI suggestion.",
@@ -155,8 +160,66 @@ export default function QrCodeGenerator() {
     return undefined;
   };
 
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Invalid File Type",
+          description: "Please upload an image file (e.g., PNG, JPG, SVG).",
+          variant: "destructive",
+        });
+        return;
+      }
+      // Optional: File size check
+      // if (file.size > 1 * 1024 * 1024) { // 1MB limit
+      //   toast({
+      //     title: "File Too Large",
+      //     description: "Please upload an image smaller than 1MB.",
+      //     variant: "destructive",
+      //   });
+      //   return;
+      // }
 
-  // Panels to be rendered in the right column
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUri = reader.result as string;
+        handleCustomizationChange({ imageSrc: dataUri });
+        setUploadedImagePreview(dataUri);
+        toast({
+          title: "Image Loaded",
+          description: "Your image has been embedded.",
+        });
+      };
+      reader.onerror = () => {
+        toast({
+          title: "Image Load Error",
+          description: "Could not load the image. Please try again.",
+          variant: "destructive",
+        });
+        setUploadedImagePreview(null);
+        handleCustomizationChange({ imageSrc: '' });
+      };
+      reader.readAsDataURL(file);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ""; // Reset file input to allow re-uploading same file
+    }
+  };
+
+  const handleRemoveImage = () => {
+    handleCustomizationChange({ imageSrc: '', imageDisplaySize: 20, imageExcavate: true });
+    setUploadedImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+    toast({
+      title: "Image Removed",
+      description: "The embedded image has been cleared.",
+    });
+  };
+
+
   const SettingsPanel = () => (
     <Card className="h-full shadow-lg">
       <CardHeader>
@@ -198,7 +261,7 @@ export default function QrCodeGenerator() {
     <AiSuggestions onSuggestionSelect={handleAiSuggestionSelect} />
   );
 
-  const ElementsPanel = () => ( // This now contains the basic customization
+  const ElementsPanel = () => (
     <CustomizationPanel options={customization} onOptionsChange={handleCustomizationChange} />
   );
 
@@ -209,59 +272,70 @@ export default function QrCodeGenerator() {
           <ImageIcon className="mr-2 h-5 w-5 text-primary" />
           Media &amp; Logos
         </CardTitle>
-        <CardDescription>Embed an image or logo into your QR code. Provide a direct URL to the image.</CardDescription>
+        <CardDescription>Embed an image or logo into your QR code. Upload an image file.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <div>
-          <Label htmlFor="imageSrc">Image URL</Label>
+          <Label htmlFor="imageUpload">Upload Image</Label>
           <Input
-            id="imageSrc"
-            type="url"
-            placeholder="https://example.com/logo.png"
-            value={customization.imageSrc || ''}
-            onChange={(e) => handleCustomizationChange({ imageSrc: e.target.value })}
-            className="mt-1"
+            id="imageUpload"
+            type="file"
+            accept="image/*"
+            onChange={handleImageUpload}
+            ref={fileInputRef}
+            className="mt-1 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
           />
-          <p className="text-xs text-muted-foreground mt-1">Must be a direct link to an image (e.g., .png, .jpg, .svg).</p>
-        </div>
-        
-        <div>
-          <Label htmlFor="imageDisplaySize">Image Size ({customization.imageDisplaySize || 20}%)</Label>
-          <Slider
-            id="imageDisplaySize"
-            min={5}
-            max={40} // Max 40% to avoid covering too much QR code
-            step={1}
-            value={[customization.imageDisplaySize || 20]}
-            onValueChange={(value) => handleCustomizationChange({ imageDisplaySize: value[0] })}
-            className="mt-1"
-            disabled={!customization.imageSrc}
-          />
-           <p className="text-xs text-muted-foreground mt-1">Percentage of QR code width/height.</p>
+           <p className="text-xs text-muted-foreground mt-1">Recommended: Square logos, PNG/SVG for best results. Max 1MB.</p>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <Switch
-            id="imageExcavate"
-            checked={!!customization.imageExcavate}
-            onCheckedChange={(checked) => handleCustomizationChange({ imageExcavate: checked })}
-            disabled={!customization.imageSrc}
-          />
-          <Label htmlFor="imageExcavate">Clear QR Behind Image (Excavate)</Label>
-        </div>
-         <Button 
-            variant="outline"
-            size="sm"
-            onClick={() => handleCustomizationChange({ imageSrc: '', imageDisplaySize: 20, imageExcavate: true })}
-            disabled={!customization.imageSrc}
-            className="w-full"
-          >
-            Remove Image
-        </Button>
+        {uploadedImagePreview && (
+          <div className="space-y-2">
+            <Label>Image Preview:</Label>
+            <div className="relative w-24 h-24 border rounded-md overflow-hidden mx-auto bg-muted/20">
+              <img src={uploadedImagePreview} alt="Uploaded Preview" className="object-contain w-full h-full" />
+            </div>
+          </div>
+        )}
+        
+        {customization.imageSrc && (
+          <>
+            <div>
+              <Label htmlFor="imageDisplaySize">Image Size ({customization.imageDisplaySize || 20}%)</Label>
+              <Slider
+                id="imageDisplaySize"
+                min={5}
+                max={40}
+                step={1}
+                value={[customization.imageDisplaySize || 20]}
+                onValueChange={(value) => handleCustomizationChange({ imageDisplaySize: value[0] })}
+                className="mt-1"
+              />
+               <p className="text-xs text-muted-foreground mt-1">Percentage of QR code width/height.</p>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="imageExcavate"
+                checked={!!customization.imageExcavate}
+                onCheckedChange={(checked) => handleCustomizationChange({ imageExcavate: checked })}
+              />
+              <Label htmlFor="imageExcavate">Clear QR Behind Image (Excavate)</Label>
+            </div>
+            
+            <Button 
+                variant="outline"
+                size="sm"
+                onClick={handleRemoveImage}
+                className="w-full"
+              >
+                <XCircle className="mr-2 h-4 w-4" />
+                Remove Image
+            </Button>
+          </>
+        )}
       </CardContent>
     </Card>
   );
-
 
   const PlaceholderPanel = ({ title, description }: { title: string, description: string }) => (
     <Card className="h-full shadow-lg">
@@ -280,7 +354,6 @@ export default function QrCodeGenerator() {
       </CardContent>
     </Card>
   );
-
 
   return (
     <div className="flex flex-1 w-full h-full bg-background">
@@ -318,7 +391,7 @@ export default function QrCodeGenerator() {
             {activeTab === 'uploads' && <PlaceholderPanel title="Uploads" description="Manage your uploaded assets." />}
             {activeTab === 'myQrs' && <PlaceholderPanel title="My QRs" description="Browse and manage your saved QR codes." />}
             {activeTab === 'branding' && <PlaceholderPanel title="Branding" description="Manage brand kits and assets." />}
-             {activeTab === 'advanced' && <PlaceholderPanel title="Advanced Settings" description="Fine-tune advanced QR code parameters." />}
+            {activeTab === 'advanced' && <PlaceholderPanel title="Advanced Settings" description="Fine-tune advanced QR code parameters." />}
           </aside>
         </div>
       </main>

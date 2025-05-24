@@ -69,7 +69,7 @@ export const CustomizationOptionsSchema = z.object({
   level: z.enum(['L', 'M', 'Q', 'H']),
   size: z.number().min(64).max(1024),
   margin: z.boolean(),
-  imageSrc: z.string().url({ message: "Please enter a valid image URL." }).optional().or(z.literal('')),
+  imageSrc: z.string().optional().default(''), // Can be a Data URI or empty
   imageDisplaySize: z.number().min(5).max(50).optional(), // Percentage of QR size
   imageExcavate: z.boolean().optional(),
 });
