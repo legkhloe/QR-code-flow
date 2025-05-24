@@ -1,30 +1,36 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { QrContentSchema, type QrContentInput } from '@/lib/schemas';
+import { QrContentSchema, type QrContentInput, type CustomizationOptionsInput, CustomizationOptionsSchema } from '@/lib/schemas';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
 import QrCodePreview from './QrCodePreview';
-import CustomizationPanel, { type CustomizationOptions } from './CustomizationPanel';
+import CustomizationPanel from './CustomizationPanel';
 import AiSuggestions from './AiSuggestions';
 import { Separator } from '../ui/separator';
+import { useSearchParams } from 'next/navigation';
+
+const defaultCustomization: CustomizationOptionsInput = {
+  fgColor: '#E0E0E0',
+  bgColor: '#1E1E1E',
+  level: 'M',
+  size: 256,
+  margin: true,
+};
 
 export default function QrCodeGenerator() {
-  const [qrValue, setQrValue] = useState<string>("https://example.com");
-  const [customization, setCustomization] = useState<CustomizationOptions>({
-    fgColor: '#E0E0E0', // Light foreground for dark theme
-    bgColor: '#1E1E1E', // Dark background for dark theme
-    level: 'M',
-    size: 256,
-    margin: true,
-  });
+  const searchParams = useSearchParams();
   const { toast } = useToast();
 
+  const [qrValue, setQrValue] = useState<string>("https://example.com");
+  const [customization, setCustomization] = useState<CustomizationOptionsInput>(defaultCustomization);
+  
   const form = useForm<QrContentInput>({
     resolver: zodResolver(QrContentSchema),
     defaultValues: {
@@ -32,7 +38,53 @@ export default function QrCodeGenerator() {
     },
   });
 
-  // Update QR value when form content changes
+  useEffect(() => {
+    const initialQrValue = searchParams.get('qrValue');
+    const fgColor = searchParams.get('fgColor');
+    const bgColor = searchParams.get('bgColor');
+    const level = searchParams.get('level') as CustomizationOptionsInput['level'] | null;
+    const size = searchParams.get('size');
+    const margin = searchParams.get('margin');
+
+    let loadedFromParams = false;
+
+    if (initialQrValue) {
+      setQrValue(initialQrValue);
+      form.setValue('content', initialQrValue);
+      loadedFromParams = true;
+    }
+
+    const newCustomization: Partial<CustomizationOptionsInput> = {};
+    if (fgColor) newCustomization.fgColor = fgColor;
+    if (bgColor) newCustomization.bgColor = bgColor;
+    if (level && ['L', 'M', 'Q', 'H'].includes(level)) newCustomization.level = level;
+    if (size && !isNaN(parseInt(size))) newCustomization.size = parseInt(size);
+    if (margin !== null) newCustomization.margin = margin === 'true';
+    
+    if (Object.keys(newCustomization).length > 0) {
+       try {
+        const validatedInitialCustomization = CustomizationOptionsSchema.partial().parse(newCustomization);
+        setCustomization(prev => ({ ...prev, ...validatedInitialCustomization }));
+        loadedFromParams = true;
+      } catch (error) {
+        console.error("Invalid customization options from URL in editor:", error);
+        toast({
+          title: "Customization Load Error",
+          description: "Some customization options from the URL were invalid and defaults were used.",
+          variant: "destructive"
+        });
+      }
+    }
+    if (loadedFromParams) {
+       toast({
+        title: "QR Code Loaded",
+        description: "Your QR code has been loaded into the editor.",
+      });
+    }
+
+  }, [searchParams, form, toast]);
+
+
   const watchContent = form.watch('content');
   useEffect(() => {
     if (watchContent && watchContent !== qrValue) {
@@ -48,13 +100,13 @@ export default function QrCodeGenerator() {
     });
   };
 
-  const handleCustomizationChange = (newOptions: Partial<CustomizationOptions>) => {
+  const handleCustomizationChange = (newOptions: Partial<CustomizationOptionsInput>) => {
     setCustomization(prev => ({ ...prev, ...newOptions }));
   };
 
   const handleAiSuggestionSelect = (suggestion: string) => {
     form.setValue('content', suggestion);
-    setQrValue(suggestion); // Immediately update preview
+    setQrValue(suggestion); 
     toast({
       title: "Content Updated",
       description: "QR code content set from AI suggestion.",
@@ -66,8 +118,8 @@ export default function QrCodeGenerator() {
       <div className="lg:col-span-2 space-y-8">
         <Card className="shadow-xl">
           <CardHeader>
-            <CardTitle className="text-2xl">Create Your QR Code</CardTitle>
-            <CardDescription>Enter the URL or text you want to encode in the QR code.</CardDescription>
+            <CardTitle className="text-2xl">Advanced QR Code Editor</CardTitle>
+            <CardDescription>Fine-tune your QR code content and appearance.</CardDescription>
           </CardHeader>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -77,12 +129,12 @@ export default function QrCodeGenerator() {
                   name="content"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel htmlFor="qr-content">Content (URL or Text)</FormLabel>
+                      <FormLabel htmlFor="qr-content">Content (URL, Text, WiFi, vCard, etc.)</FormLabel>
                       <FormControl>
                         <Textarea
                           id="qr-content"
-                          placeholder="e.g., https://yourwebsite.com or 'Hello World!'"
-                          rows={4}
+                          placeholder="e.g., https://yourwebsite.com or 'Hello World!' or WIFI:S:MyNet;T:WPA;P:MyPass;;"
+                          rows={6}
                           {...field}
                         />
                       </FormControl>
@@ -91,7 +143,7 @@ export default function QrCodeGenerator() {
                   )}
                 />
                 <Button type="submit" className="w-full sm:w-auto">
-                  Generate / Update QR Code
+                  Update Preview
                 </Button>
               </CardContent>
             </form>

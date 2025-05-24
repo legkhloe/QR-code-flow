@@ -1,24 +1,36 @@
+
 "use client"; 
 
+import { Suspense } from 'react';
 import QrCodeGenerator from '@/components/dashboard/QrCodeGenerator';
-import { appName } from '@/lib/config';
-// import type { Metadata } from 'next'; // Metadata needs to be handled differently for client components
+import { Skeleton } from '@/components/ui/skeleton';
 
-// If you need dynamic title based on appName for SEO:
-// export const metadata: Metadata = {
-// title: `Dashboard | ${appName}`,
-// description: `Manage your QR codes with ${appName}.`,
-// };
+function DashboardPageSkeleton() {
+  return (
+    <div>
+      <Skeleton className="h-10 w-1/4 mb-8" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        <div className="lg:col-span-2 space-y-8">
+          <Skeleton className="h-64 w-full rounded-lg" />
+          <Skeleton className="h-40 w-full rounded-lg" />
+        </div>
+        <div className="lg:col-span-1 space-y-8">
+          <Skeleton className="h-80 w-full rounded-lg" />
+          <Skeleton className="h-96 w-full rounded-lg" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
 
 export default function DashboardPage() {
-  // Authentication checks and redirection are removed.
-  // Loading skeleton related to auth is removed.
-
   return (
     <div>
-      <h1 className="text-3xl font-bold tracking-tight mb-8">Dashboard</h1>
-      <QrCodeGenerator />
+      <h1 className="text-3xl font-bold tracking-tight mb-8">Advanced QR Code Editor</h1>
+      <Suspense fallback={<DashboardPageSkeleton />}>
+        <QrCodeGenerator />
+      </Suspense>
     </div>
   );
 }

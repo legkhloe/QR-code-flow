@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, Palette, ScanQrCode, Sparkles } from "lucide-react";
+import { CheckCircle, Palette, ScanQrCode, Sparkles, Paintbrush } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { appName } from '@/lib/config';
@@ -18,7 +18,7 @@ export default function HomePage() {
           Your gateway to seamless digital interaction.
         </p>
         <div className="space-x-4">
-          <Link href="/dashboard" passHref legacyBehavior>
+          <Link href="/create" passHref legacyBehavior>
             <Button size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground">
               Get Started
             </Button>
@@ -43,20 +43,20 @@ export default function HomePage() {
             </CardHeader>
             <CardContent>
               <CardDescription>
-                Quickly generate QR codes for URLs, text, contact information, and more. Simple and intuitive.
+                Step-by-step wizard to create QR codes for URLs, WiFi, vCards, and more.
               </CardDescription>
             </CardContent>
           </Card>
           <Card className="shadow-lg hover:shadow-primary/30 transition-shadow duration-300">
             <CardHeader>
               <div className="flex items-center justify-center w-12 h-12 bg-primary/10 text-primary rounded-full mb-4">
-                <Palette className="w-6 h-6" />
+                <Paintbrush className="w-6 h-6" />
               </div>
               <CardTitle>Advanced Customization</CardTitle>
             </CardHeader>
             <CardContent>
               <CardDescription>
-                Personalize your QR codes with custom colors, logos, and shapes to match your brand.
+                Personalize your QR codes with custom colors, sizes, and error correction levels.
               </CardDescription>
             </CardContent>
           </Card>
@@ -69,7 +69,7 @@ export default function HomePage() {
             </CardHeader>
             <CardContent>
               <CardDescription>
-                Get intelligent suggestions for QR code content based on your input, powered by AI.
+                Get intelligent suggestions for QR code content in our advanced editor.
               </CardDescription>
             </CardContent>
           </Card>
@@ -92,7 +92,7 @@ export default function HomePage() {
             <ul className="space-y-4 text-muted-foreground">
                 <li className="flex items-start">
                     <CheckCircle className="w-5 h-5 text-primary mr-3 mt-1 flex-shrink-0" />
-                    <span><strong>User-Friendly Interface:</strong> Designed for simplicity and efficiency, making QR code creation a breeze for everyone.</span>
+                    <span><strong>User-Friendly Wizard:</strong> Designed for simplicity, making QR code creation a breeze for everyone.</span>
                 </li>
                 <li className="flex items-start">
                     <CheckCircle className="w-5 h-5 text-primary mr-3 mt-1 flex-shrink-0" />
@@ -100,7 +100,7 @@ export default function HomePage() {
                 </li>
                 <li className="flex items-start">
                     <CheckCircle className="w-5 h-5 text-primary mr-3 mt-1 flex-shrink-0" />
-                    <span><strong>Secure and Reliable:</strong> Built with security in mind to protect your data and ensure reliable QR code generation.</span>
+                    <span><strong>Flexible Customization:</strong> Start with basic options and move to an advanced editor for more control.</span>
                 </li>
             </ul>
         </div>
@@ -109,11 +109,11 @@ export default function HomePage() {
       <section className="text-center py-16">
         <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to Forge Your QR Codes?</h2>
         <p className="max-w-xl mx-auto text-lg text-muted-foreground mb-8">
-          Jump into the dashboard and start creating amazing QR codes with {appName}!
+          Jump into our creation wizard and start making amazing QR codes with {appName}!
         </p>
-        <Link href="/dashboard" passHref legacyBehavior>
+        <Link href="/create" passHref legacyBehavior>
           <Button size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground">
-            Go to Dashboard
+            Create Your QR Code
           </Button>
         </Link>
       </section>
