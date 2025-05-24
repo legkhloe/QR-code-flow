@@ -3,12 +3,22 @@
 
 import { Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import QrCodePreview from '@/components/dashboard/QrCodePreview';
+import QrCodePreview from '@/components/dashboard/QrCodePreview'; // Re-using the enhanced preview
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { CustomizationOptionsSchema } from '@/lib/schemas'; // For validation
+import { CustomizationOptionsSchema, type CustomizationOptionsInput } from '@/lib/schemas';
 import { Skeleton } from '@/components/ui/skeleton';
+
+// Define the structure for imageSettings, matching qrcode.react's expectation
+interface ImageSettings {
+  src: string;
+  height: number;
+  width: number;
+  excavate: boolean;
+  x?: number;
+  y?: number;
+}
 
 function DownloadQrContent() {
   const searchParams = useSearchParams();
@@ -16,21 +26,34 @@ function DownloadQrContent() {
 
   const qrValue = searchParams.get('qrValue') || "https://example.com";
   
-  const options = {
+  const options: CustomizationOptionsInput = {
     fgColor: searchParams.get('fgColor') || '#E0E0E0',
     bgColor: searchParams.get('bgColor') || '#1E1E1E',
-    level: (searchParams.get('level') as 'L' | 'M' | 'Q' | 'H') || 'M',
+    level: (searchParams.get('level') as CustomizationOptionsInput['level']) || 'M',
     size: parseInt(searchParams.get('size') || '256', 10),
     margin: searchParams.get('margin') === 'true',
+    imageSrc: searchParams.get('imageSrc') || '',
+    imageDisplaySize: parseInt(searchParams.get('imageDisplaySize') || '20', 10),
+    imageExcavate: searchParams.get('imageExcavate') === 'true',
   };
+  
+  let imageSettingsForPreview: ImageSettings | undefined = undefined;
+  if (options.imageSrc && options.imageDisplaySize && options.size) {
+    const imageSizePx = Math.floor((options.size * options.imageDisplaySize) / 100);
+    imageSettingsForPreview = {
+      src: options.imageSrc,
+      height: imageSizePx,
+      width: imageSizePx,
+      excavate: !!options.imageExcavate,
+    };
+  }
 
-  // Validate options (optional, but good practice)
+
   try {
     CustomizationOptionsSchema.parse(options);
   } catch (error) {
-    console.error("Invalid customization options from URL:", error);
-    // Handle error, e.g., redirect or show message
-    // For now, we'll proceed with defaults if parsing fails
+    console.error("Invalid customization options from URL on download page:", error);
+    // Potentially show a toast or revert to full defaults
   }
 
 
@@ -55,9 +78,10 @@ function DownloadQrContent() {
       <Card className="shadow-xl">
         <CardHeader>
           <CardTitle className="text-3xl font-bold tracking-tight">Download Your QR Code</CardTitle>
-          <CardDescription>Your QR code is ready! Choose your preferred format below.</CardDescription>
+          <CardDescription>Your QR code is ready! Click the buttons below the preview to download.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center space-y-6">
+          {/* QrCodePreview component already has its own download buttons */}
           <QrCodePreview
             value={qrValue}
             size={options.size}
@@ -65,6 +89,7 @@ function DownloadQrContent() {
             bgColor={options.bgColor}
             level={options.level}
             includeMargin={options.margin}
+            imageSettings={imageSettingsForPreview}
           />
           <Button onClick={() => router.push('/create')} variant="outline" className="w-full sm:w-auto">
              <ArrowLeft className="mr-2 h-4 w-4" /> Create Another QR Code
@@ -94,11 +119,7 @@ function DownloadQrPageSkeleton() {
         </CardHeader>
         <CardContent className="flex flex-col items-center space-y-6">
           <Skeleton className="h-64 w-64 rounded-lg" />
-          <div className="flex space-x-2 w-full">
-            <Skeleton className="h-10 w-1/3" />
-            <Skeleton className="h-10 w-1/3" />
-            <Skeleton className="h-10 w-1/3" />
-          </div>
+          {/* Skeleton for download buttons inside QrCodePreview is implicit */}
           <Skeleton className="h-10 w-1/2" />
         </CardContent>
       </Card>

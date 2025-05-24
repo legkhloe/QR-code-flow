@@ -11,7 +11,7 @@ import { generateQrValue } from '@/lib/qrUtils';
 import { Button } from '@/components/ui/button';
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react'; // ChevronRight removed as it's on the form's next button
 import { appName } from '@/lib/config';
 
 const STEPS = [
@@ -20,19 +20,24 @@ const STEPS = [
   { id: 3, name: 'Customize & Finish', description: 'Adjust appearance and choose your next step.' },
 ];
 
+const initialCustomizationOptions: CustomizationOptionsInput = {
+  fgColor: '#E0E0E0',
+  bgColor: '#1E1E1E',
+  level: 'M',
+  size: 256,
+  margin: true,
+  imageSrc: '',
+  imageDisplaySize: 20,
+  imageExcavate: true,
+};
+
 export default function CreateQrPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [qrType, setQrType] = useState<QrType | null>(null);
-  const [qrDetails, setQrDetails] = useState<any | null>(null); // Stores specific data for the chosen type
-  const [qrValue, setQrValue] = useState<string>(''); // The actual string for QR code generation
+  const [qrDetails, setQrDetails] = useState<any | null>(null); 
+  const [qrValue, setQrValue] = useState<string>(''); 
   
-  const [customizationOptions, setCustomizationOptions] = useState<CustomizationOptionsInput>({
-    fgColor: '#E0E0E0', // Light foreground for dark theme
-    bgColor: '#1E1E1E', // Dark background for dark theme
-    level: 'M',
-    size: 256,
-    margin: true,
-  });
+  const [customizationOptions, setCustomizationOptions] = useState<CustomizationOptionsInput>(initialCustomizationOptions);
 
   const router = useRouter();
 
@@ -50,7 +55,7 @@ export default function CreateQrPage() {
 
   const handleTypeSelect = (type: QrType) => {
     setQrType(type);
-    setQrDetails(null); // Reset details when type changes
+    setQrDetails(null); 
     handleNextStep();
   };
 
@@ -65,20 +70,33 @@ export default function CreateQrPage() {
     setCustomizationOptions(prev => ({ ...prev, ...newOptions }));
   };
 
-  const handleDownload = () => {
-    const queryParams = new URLSearchParams({
+  const buildQueryParams = () => {
+    const params = new URLSearchParams({
       qrValue: qrValue,
-      ...Object.fromEntries(Object.entries(customizationOptions).map(([key, value]) => [key, String(value)]))
+      fgColor: customizationOptions.fgColor,
+      bgColor: customizationOptions.bgColor,
+      level: customizationOptions.level,
+      size: String(customizationOptions.size),
+      margin: String(customizationOptions.margin),
     });
-    router.push(`/download?${queryParams.toString()}`);
+    if (customizationOptions.imageSrc) {
+      params.append('imageSrc', customizationOptions.imageSrc);
+    }
+    if (customizationOptions.imageDisplaySize) {
+      params.append('imageDisplaySize', String(customizationOptions.imageDisplaySize));
+    }
+    if (customizationOptions.imageExcavate !== undefined) { // Ensure boolean is stringified
+      params.append('imageExcavate', String(customizationOptions.imageExcavate));
+    }
+    return params.toString();
+  }
+
+  const handleDownload = () => {
+    router.push(`/download?${buildQueryParams()}`);
   };
 
   const handleGoToEditor = () => {
-     const queryParams = new URLSearchParams({
-      qrValue: qrValue,
-      ...Object.fromEntries(Object.entries(customizationOptions).map(([key, value]) => [key, String(value)]))
-    });
-    router.push(`/dashboard?${queryParams.toString()}`);
+    router.push(`/dashboard?${buildQueryParams()}`);
   };
   
   const progressPercentage = (currentStep / STEPS.length) * 100;
