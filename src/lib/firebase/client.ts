@@ -1,6 +1,6 @@
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
+// import { getAuth, type Auth } from "firebase/auth"; // getAuth is no longer needed here
 import { firebaseConfig } from "@/lib/config";
 
 // Check for essential Firebase configuration *before* attempting to initialize
@@ -32,6 +32,6 @@ if (
 // Initialize Firebase
 // The getApps().length check ensures Firebase is only initialized once.
 const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-const auth: Auth = getAuth(app);
+// const auth: Auth = getAuth(app); // Auth service is no longer initialized/exported here
 
-export { app, auth };
+export { app }; // Export only app if auth is not used client-side directly
