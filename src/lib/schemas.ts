@@ -69,9 +69,9 @@ export const CustomizationOptionsSchema = z.object({
   level: z.enum(['L', 'M', 'Q', 'H']),
   size: z.number().min(64).max(1024),
   margin: z.boolean(),
-  imageSrc: z.string().optional().default(''),
+  imageSrc: z.string().optional().default(''), // Can be URL or Data URI
   imageDisplaySize: z.number().min(5).max(50).optional(),
-  imageExcavate: z.boolean().optional(),
+  imageExcavate: z.boolean().optional().default(false), // Default changed to false
 });
 export type CustomizationOptionsInput = z.infer<typeof CustomizationOptionsSchema>;
 
@@ -91,11 +91,7 @@ export const SavedQrConfigArraySchema = z.array(SavedQrConfigSchema);
 export type SavedQrConfigArray = z.infer<typeof SavedQrConfigArraySchema>;
 
 // Schema for a single Brand Kit
-// A brand kit primarily stores visual customization options.
-// We might want to make this a partial of CustomizationOptionsSchema
-// if a brand kit doesn't enforce things like 'size'.
-// For now, let's keep it similar to ensure all visual aspects are covered.
-export const BrandKitCustomizationSchema = CustomizationOptionsSchema.omit({ size: true }); // Brand kits usually don't dictate size
+export const BrandKitCustomizationSchema = CustomizationOptionsSchema.omit({ size: true });
 export type BrandKitCustomizationInput = z.infer<typeof BrandKitCustomizationSchema>;
 
 export const BrandKitSchema = z.object({
