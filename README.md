@@ -8,6 +8,7 @@ This is a Next.js application built with Firebase Studio that allows users to ge
 Before you begin, ensure you have the following installed:
 *   [Node.js](https://nodejs.org/) (v18 or later recommended)
 *   [npm](https://www.npmjs.com/) (comes with Node.js) or [yarn](https://yarnpkg.com/)
+*   [Git](https://git-scm.com/)
 
 ## Getting Started
 
@@ -115,5 +116,58 @@ In the project directory, you can run:
 *   `npm run lint`: Lints the codebase.
 *   `npm run typecheck`: Runs TypeScript type checking.
 
+## Shipping to GitHub
+
+To push your application code to a GitHub repository, follow these steps from your local machine's terminal:
+
+1.  **Create a New Repository on GitHub:**
+    *   Go to [GitHub](https://github.com).
+    *   Click the "+" icon and select "New repository."
+    *   Name your repository (e.g., `QR-code-flow`).
+    *   **Important:** Do NOT initialize the new repository with a README, .gitignore, or license if your local project already has these.
+    *   Click "Create repository." Note the repository URL (e.g., `https://github.com/your-username/your-repository-name.git`).
+
+2.  **Open Your Terminal:**
+    Navigate to the root directory of your application.
+    ```bash
+    cd path/to/your/qr-code-forge-app
+    ```
+
+3.  **Initialize Local Git Repository (if not already done):**
+    If you don't see a `.git` folder, run:
+    ```bash
+    git init
+    ```
+
+4.  **Stage Your Project Files:**
+    ```bash
+    git add .
+    ```
+    *(Ensure your `.gitignore` file is correctly set up to exclude `node_modules`, `.env.local` (if it has secrets), `.next/`, etc.)*
+
+5.  **Commit Your Files:**
+    ```bash
+    git commit -m "Initial commit of project files"
+    ```
+
+6.  **Link to Your GitHub Repository:**
+    Replace `YOUR_GITHUB_REPOSITORY_URL` with the URL from step 1.
+    ```bash
+    git remote add origin YOUR_GITHUB_REPOSITORY_URL
+    ```
+    Example: `git remote add origin https://github.com/legkhloe/QR-code-flow.git`
+
+    *If "origin" already exists, you can update it: `git remote set-url origin YOUR_GITHUB_REPOSITORY_URL`*
+
+7.  **Push Your Code to GitHub:**
+    *   For a `main` branch:
+        ```bash
+        git push -u origin main
+        ```
+    *   For a `master` branch:
+        ```bash
+        git push -u origin master
+        ```
+    *(The `-u` flag sets the upstream branch for easier future pushes.)*
+
 Enjoy building with QR Code Forge!
-```
