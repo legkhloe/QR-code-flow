@@ -29,11 +29,12 @@ import { useSearchParams } from 'next/navigation';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Info, ImageIcon, XCircle, Save, Trash2, Edit, QrCode as QrCodeIcon, FolderKanban, Award, Palette, Wand2, Loader2, Lightbulb } from 'lucide-react';
+import { Info, ImageIcon, XCircle, Save, Trash2, Edit, QrCode as QrCodeIcon, FolderKanban, Award, Palette, Wand2, Loader2, Settings, Shapes, Bot, UploadCloud } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { UseFormReturn } from 'react-hook-form';
 import { generateLogoForQrCode, type GenerateLogoInput } from '@/ai/flows/generate-logo-flow';
 import { Separator } from '@/components/ui/separator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 const LOCAL_STORAGE_MY_QRS_KEY = 'qrCodeForgeMyQRs';
@@ -47,7 +48,7 @@ const defaultCustomization: CustomizationOptionsInput = {
   margin: true,
   imageSrc: '',
   imageDisplaySize: 20, 
-  imageExcavate: false, // Default changed to false
+  imageExcavate: false, 
 };
 
 interface SettingsPanelProps {
@@ -56,34 +57,36 @@ interface SettingsPanelProps {
 }
 
 const SettingsPanel: React.FC<SettingsPanelProps> = ({ form, onSubmitContent }) => (
-  <Card className="h-full shadow-lg">
+  <Card className="h-full shadow-lg flex flex-col">
     <CardHeader>
-      <CardTitle>QR Code Content</CardTitle>
+      <CardTitle className="flex items-center">
+        <Settings className="mr-2 h-5 w-5 text-primary" />
+        QR Code Content
+      </CardTitle>
       <CardDescription>Enter the data for your QR code. This could be a URL, text, Wi-Fi credentials, etc.</CardDescription>
     </CardHeader>
-    <CardContent>
+    <CardContent className="flex-grow">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmitContent)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmitContent)} className="space-y-4 h-full flex flex-col">
           <FormField
             control={form.control}
             name="content"
             render={({ field }) => (
-              <FormItem>
+              <FormItem className="flex-grow flex flex-col">
                 <FormLabel htmlFor="qr-content-editor-panel" className="sr-only">Content</FormLabel>
-                <FormControl>
+                <FormControl className="flex-grow">
                   <Textarea
                     id="qr-content-editor-panel"
                     placeholder="e.g., https://yourwebsite.com or 'Hello World!'"
-                    rows={6}
                     {...field}
-                    className="text-base bg-input focus:bg-background"
+                    className="text-base bg-input focus:bg-background h-full resize-none"
                   />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full">
+          <Button type="submit" className="w-full mt-auto">
             Update QR Content
           </Button>
         </form>
@@ -97,6 +100,12 @@ interface AiAssistPanelProps {
 }
 const AiAssistPanel: React.FC<AiAssistPanelProps> = ({ onSuggestionSelect }) => (
    <Card className="h-full shadow-lg">
+    <CardHeader>
+        <CardTitle className="flex items-center">
+          <Bot className="mr-2 h-5 w-5 text-primary" />
+          AI Content Assist
+        </CardTitle>
+      </CardHeader>
       <AiSuggestions onSuggestionSelect={onSuggestionSelect} />
    </Card>
 );
@@ -107,6 +116,13 @@ interface ElementsPanelProps {
 }
 const ElementsPanel: React.FC<ElementsPanelProps> = ({ options, onOptionsChange }) => (
   <Card className="h-full shadow-lg">
+     <CardHeader>
+        <CardTitle className="flex items-center">
+          <Shapes className="mr-2 h-5 w-5 text-primary" />
+          Elements & Style
+        </CardTitle>
+        <CardDescription>Customize colors, error correction, size, and margins.</CardDescription>
+      </CardHeader>
     <CustomizationPanel options={options} onOptionsChange={onOptionsChange} />
   </Card>
 );
@@ -173,7 +189,7 @@ const MediaPanel: React.FC<MediaPanelProps> = ({
         <Input
           id="imageUpload"
           type="file"
-          accept="image/png, image/jpeg, image/svg+xml" // More specific
+          accept="image/png, image/jpeg, image/svg+xml"
           onChange={handleImageUpload}
           ref={fileInputRef}
           className="mt-1 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
@@ -183,7 +199,7 @@ const MediaPanel: React.FC<MediaPanelProps> = ({
       </div>
 
       {uploadedImagePreview && (
-        <div className="space-y-2 pt-4 border-t mt-4">
+        <div className="space-y-4 pt-4 border-t mt-4 border-border">
             <div className="flex justify-between items-center">
                 <Label>Image Preview:</Label>
                  <Button 
@@ -227,7 +243,7 @@ const MediaPanel: React.FC<MediaPanelProps> = ({
         </div>
       )}
       
-      <Separator />
+      <Separator className="my-6" />
 
       <div>
         <form onSubmit={handleGenerateLogo} className="space-y-3">
@@ -274,43 +290,59 @@ const MyQrsPanel: React.FC<MyQrsPanelProps> = ({ savedQrs, openSaveQrModal, hand
     </CardHeader>
     <CardContent className="flex-grow overflow-hidden">
       {savedQrs.length === 0 ? (
-        <div className="text-center text-muted-foreground py-8">
-          <QrCodeIcon className="mx-auto h-12 w-12 mb-4 opacity-50" />
-          <p>You haven't saved any QR codes yet.</p>
-          <p>Click the "Save QR" button in the top bar to save your current configuration.</p>
+        <div className="text-center text-muted-foreground py-8 flex flex-col items-center justify-center h-full">
+          <QrCodeIcon className="h-16 w-16 mb-4 opacity-30" />
+          <p className="text-lg font-medium">No Saved QRs Yet</p>
+          <p className="text-sm">Click the "Save QR" button in the top bar to save your current design.</p>
         </div>
       ) : (
         <ScrollArea className="h-full pr-3"> 
-          <ul className="space-y-3">
+          <div className="space-y-3">
             {savedQrs.map((qr) => (
-              <li key={qr.id} className="p-3 border rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                     <QrCodeIcon className="h-6 w-6 text-primary flex-shrink-0" />
-                     <div>
-                        <p className="font-semibold truncate max-w-[150px] sm:max-w-[200px]">{qr.name}</p>
+              <div key={qr.id} className="p-3 border rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors flex items-center justify-between space-x-2">
+                <div className="flex items-center space-x-3 overflow-hidden">
+                     <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <div style={{ backgroundColor: qr.customization.fgColor }} className="w-4 h-4 rounded-sm border border-border"/>
+                        <div style={{ backgroundColor: qr.customization.bgColor }} className="w-4 h-4 rounded-sm border border-border"/>
+                     </div>
+                     <div className="overflow-hidden">
+                        <p className="font-semibold truncate text-sm" title={qr.name}>{qr.name}</p>
                         <p className="text-xs text-muted-foreground">
                           Saved: {new Date(qr.createdAt).toLocaleDateString()}
                         </p>
                      </div>
-                  </div>
-                  <div className="flex space-x-1.5">
-                    <Button variant="outline" size="sm" onClick={() => openSaveQrModal(qr)} title="Edit & Update">
-                      <Edit className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => handleLoadQr(qr.id)} title="Load">
-                      Load
-                    </Button>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm" onClick={() => setQrToDeleteId(qr.id)} title="Delete">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </AlertDialogTrigger>
-                  </div>
                 </div>
-              </li>
+                <div className="flex space-x-1.5 flex-shrink-0">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" onClick={() => openSaveQrModal(qr)} className="h-8 w-8">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Edit Name & Update</p></TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                       <Button variant="ghost" size="icon" onClick={() => handleLoadQr(qr.id)} className="h-8 w-8">
+                        <UploadCloud className="h-4 w-4" /> {/* Changed icon for Load */}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Load QR</p></TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={() => setQrToDeleteId(qr.id)} className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Delete QR</p></TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
             ))}
-          </ul>
+          </div>
         </ScrollArea>
       )}
     </CardContent>
@@ -332,53 +364,66 @@ const BrandingPanel: React.FC<BrandingPanelProps> = ({ brandKits, openSaveBrandK
         <Award className="mr-2 h-5 w-5 text-primary" />
         Brand Kits
       </CardTitle>
-      <CardDescription>Save and apply consistent branding to your QR codes.</CardDescription>
+      <CardDescription>Save and apply consistent branding to your QR codes. Does not include QR content or size.</CardDescription>
     </CardHeader>
-    <CardContent className="flex-grow overflow-hidden space-y-4">
+    <CardContent className="flex-grow overflow-hidden flex flex-col space-y-4">
       <Button onClick={() => openSaveBrandKitModal()} className="w-full">
         <Save className="mr-2 h-4 w-4" /> Save Current Style as Brand Kit
       </Button>
       {brandKits.length === 0 ? (
-        <div className="text-center text-muted-foreground py-8">
-          <Palette className="mx-auto h-12 w-12 mb-4 opacity-50" />
-          <p>No brand kits saved yet.</p>
-          <p>Customize your QR's appearance and save it as a new kit.</p>
+        <div className="text-center text-muted-foreground py-8 flex flex-col items-center justify-center h-full">
+          <Palette className="mx-auto h-16 w-16 mb-4 opacity-30" />
+           <p className="text-lg font-medium">No Brand Kits Yet</p>
+          <p className="text-sm">Customize your QR's appearance and save it as a new kit.</p>
         </div>
       ) : (
-        <ScrollArea className="h-[calc(100%-4rem)] pr-3">
-          <ul className="space-y-3">
+        <ScrollArea className="h-full flex-grow pr-3">
+          <div className="space-y-3">
             {brandKits.map((kit) => (
-              <li key={kit.id} className="p-3 border rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                     <div className="flex items-center gap-1.5">
-                      <div style={{ backgroundColor: kit.customization.fgColor }} className="w-3 h-3 rounded-sm border border-border"/>
-                      <div style={{ backgroundColor: kit.customization.bgColor }} className="w-3 h-3 rounded-sm border border-border"/>
+              <div key={kit.id} className="p-3 border rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors flex items-center justify-between space-x-2">
+                <div className="flex items-center space-x-3 overflow-hidden">
+                     <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <div style={{ backgroundColor: kit.customization.fgColor }} className="w-4 h-4 rounded-sm border border-border"/>
+                      <div style={{ backgroundColor: kit.customization.bgColor }} className="w-4 h-4 rounded-sm border border-border"/>
                      </div>
-                     <div>
-                        <p className="font-semibold truncate max-w-[120px] sm:max-w-[180px]">{kit.name}</p>
+                     <div className="overflow-hidden">
+                        <p className="font-semibold truncate text-sm" title={kit.name}>{kit.name}</p>
                         <p className="text-xs text-muted-foreground">
                           Created: {new Date(kit.createdAt).toLocaleDateString()}
                         </p>
                      </div>
-                  </div>
-                  <div className="flex space-x-1.5">
-                    <Button variant="outline" size="sm" onClick={() => openSaveBrandKitModal(kit)} title="Edit & Update Kit">
-                      <Edit className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="default" size="sm" onClick={() => handleApplyBrandKit(kit.customization)} title="Apply">
-                      Apply
-                    </Button>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="destructive" size="sm" onClick={() => setBrandKitToDeleteId(kit.id)} title="Delete">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </AlertDialogTrigger>
-                  </div>
                 </div>
-              </li>
+                <div className="flex space-x-1.5 flex-shrink-0">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" onClick={() => openSaveBrandKitModal(kit)} className="h-8 w-8">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Edit Kit Name & Update</p></TooltipContent>
+                  </Tooltip>
+                   <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button variant="ghost" size="icon" onClick={() => handleApplyBrandKit(kit.customization)} className="h-8 w-8">
+                        <Wand2 className="h-4 w-4 text-primary" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Apply Kit</p></TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" onClick={() => setBrandKitToDeleteId(kit.id)} className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent><p>Delete Kit</p></TooltipContent>
+                  </Tooltip>
+                </div>
+              </div>
             ))}
-          </ul>
+          </div>
         </ScrollArea>
       )}
     </CardContent>
@@ -388,15 +433,19 @@ const BrandingPanel: React.FC<BrandingPanelProps> = ({ brandKits, openSaveBrandK
 interface PlaceholderPanelProps {
   title: string;
   description: string;
+  icon?: React.ElementType;
 }
-const PlaceholderPanel: React.FC<PlaceholderPanelProps> = ({ title, description }) => (
-  <Card className="h-full shadow-lg">
+const PlaceholderPanel: React.FC<PlaceholderPanelProps> = ({ title, description, icon: Icon }) => (
+  <Card className="h-full shadow-lg flex flex-col">
     <CardHeader>
-      <CardTitle>{title}</CardTitle>
+      <CardTitle className="flex items-center">
+       {Icon && <Icon className="mr-2 h-5 w-5 text-primary" />}
+        {title}
+      </CardTitle>
       <CardDescription>{description}</CardDescription>
     </CardHeader>
-    <CardContent>
-      <Alert variant="default" className="bg-muted/50">
+    <CardContent className="flex-grow flex items-center justify-center">
+      <Alert variant="default" className="bg-muted/50 w-full max-w-md">
         <Info className="h-4 w-4" />
         <AlertTitle>Coming Soon!</AlertTitle>
         <AlertDescription>
@@ -446,7 +495,7 @@ export default function QrCodeGenerator() {
         const parsedQrs = JSON.parse(storedQrs);
         const validationResult = SavedQrConfigArraySchema.safeParse(parsedQrs);
         if (validationResult.success) {
-          setSavedQrs(validationResult.data);
+          setSavedQrs(validationResult.data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
         } else {
           console.warn("Invalid My QRs data in localStorage, clearing.", validationResult.error);
           localStorage.removeItem(LOCAL_STORAGE_MY_QRS_KEY);
@@ -462,7 +511,7 @@ export default function QrCodeGenerator() {
         const parsedKits = JSON.parse(storedBrandKits);
         const validationResult = BrandKitArraySchema.safeParse(parsedKits);
         if (validationResult.success) {
-          setBrandKits(validationResult.data);
+          setBrandKits(validationResult.data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
         } else {
           console.warn("Invalid Brand Kits data in localStorage, clearing.", validationResult.error);
           localStorage.removeItem(LOCAL_STORAGE_BRAND_KITS_KEY);
@@ -501,7 +550,8 @@ export default function QrCodeGenerator() {
     
     if (imageSrcParam) {
       newCustomization.imageSrc = imageSrcParam;
-      if (imageSrcParam.startsWith('data:image/')) {
+      // Only set preview if it's a data URI, external URLs might not be safe/reliable for direct preview
+      if (imageSrcParam.startsWith('data:image/')) { 
         setUploadedImagePreview(imageSrcParam);
       }
     }
@@ -509,7 +559,6 @@ export default function QrCodeGenerator() {
     if (imageExcavate !== null) {
         newCustomization.imageExcavate = imageExcavate === 'true';
     } else if (newCustomization.imageSrc) { 
-        // If imageSrc is set but imageExcavate is not, apply default
         newCustomization.imageExcavate = defaultCustomization.imageExcavate;
     }
     
@@ -539,10 +588,13 @@ export default function QrCodeGenerator() {
 
   const watchContent = form.watch('content');
   useEffect(() => {
+    // Only update qrValue if content is valid and different
     if (form.formState.isDirty && form.formState.isValid && watchContent && watchContent !== qrValue) {
-      setQrValue(watchContent);
+      if (QrContentSchema.safeParse({ content: watchContent }).success) {
+        setQrValue(watchContent);
+      }
     }
-  }, [watchContent, qrValue, form.formState.isDirty, form.formState.isValid]);
+  }, [watchContent, qrValue, form.formState.isDirty, form.formState.isValid, form]);
 
 
   const onSubmitContent = (data: QrContentInput) => {
@@ -558,8 +610,8 @@ export default function QrCodeGenerator() {
   };
 
   const handleAiSuggestionSelect = (suggestion: string) => {
-    form.setValue('content', suggestion, { shouldValidate: true });
-    // Trigger reactive update for qrValue if content is valid
+    form.setValue('content', suggestion, { shouldValidate: true, shouldDirty: true });
+    // Trigger reactive update for qrValue immediately if content is valid.
     if (QrContentSchema.safeParse({ content: suggestion }).success) {
         setQrValue(suggestion);
     }
@@ -573,15 +625,18 @@ export default function QrCodeGenerator() {
     qrPreviewRef.current?.downloadQRCode(format);
   };
   
-  const editorPreviewSize = Math.max(128, Math.min(customization.size || 256, 384));
+  // Make preview size responsive to editor panel, but capped
+  const editorPreviewSize = Math.max(128, Math.min(customization.size || 256, 420));
+
 
   const imageSettingsForPreview = () => {
     if (customization.imageSrc && customization.imageDisplaySize && customization.size) {
-      const imageSizePx = Math.floor((customization.size * customization.imageDisplaySize) / 100);
+      // Calculate image size based on the *actual current QR size* for preview
+      const imageActualSizePx = Math.floor((editorPreviewSize * customization.imageDisplaySize) / 100);
       return {
         src: customization.imageSrc,
-        height: imageSizePx,
-        width: imageSizePx,
+        height: imageActualSizePx,
+        width: imageActualSizePx,
         excavate: !!customization.imageExcavate, 
       };
     }
@@ -628,14 +683,13 @@ export default function QrCodeGenerator() {
       };
       reader.readAsDataURL(file);
     }
-    // Reset file input to allow uploading the same file again if removed
     if (fileInputRef.current) {
       fileInputRef.current.value = ""; 
     }
   };
 
   const handleRemoveImage = () => {
-    handleCustomizationChange({ imageSrc: '', imageDisplaySize: 20, imageExcavate: defaultCustomization.imageExcavate });
+    handleCustomizationChange({ imageSrc: '', imageDisplaySize: defaultCustomization.imageDisplaySize, imageExcavate: defaultCustomization.imageExcavate });
     setUploadedImagePreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -652,27 +706,25 @@ export default function QrCodeGenerator() {
       setNewQrName(qrToEditConfig.name);
     } else {
       setQrToEdit(null);
-      // Default name suggestion
-      setNewQrName(qrValue.substring(0, 30).replace(/^https?:\/\//, '') || `QR ${new Date().toLocaleTimeString()}`);
+      const proposedName = qrValue.substring(0, 30).replace(/^https?:\/\//, '');
+      setNewQrName(proposedName || `QR Code ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
     }
     setIsSaveQrModalOpen(true);
   };
 
   const handleSaveQrConfig = () => {
     if (!newQrName.trim()) {
-      toast({ title: "Error", description: "QR Code name cannot be empty.", variant: "destructive" });
+      toast({ title: "Name Required", description: "QR Code name cannot be empty.", variant: "destructive" });
       return;
     }
 
     let updatedQrs: SavedQrConfig[];
     if (qrToEdit) { 
-      // Update existing QR
       updatedQrs = savedQrs.map(qr => 
-        qr.id === qrToEdit.id ? { ...qr, name: newQrName.trim(), qrValue: qrValue, customization: customization } : qr
+        qr.id === qrToEdit.id ? { ...qr, name: newQrName.trim(), qrValue: qrValue, customization: customization, createdAt: new Date().toISOString() } : qr
       );
       toast({ title: "QR Updated", description: `"${newQrName.trim()}" has been updated.` });
     } else { 
-      // Save new QR
       const newSavedQr: SavedQrConfig = {
         id: Date.now().toString(),
         name: newQrName.trim(),
@@ -680,11 +732,12 @@ export default function QrCodeGenerator() {
         customization: customization,
         createdAt: new Date().toISOString(),
       };
-      updatedQrs = [...savedQrs, newSavedQr];
-      toast({ title: "QR Saved", description: `"${newSavedQr.name}" has been saved to My QRs.` });
+      // Add to the beginning of the array
+      updatedQrs = [newSavedQr, ...savedQrs];
+      toast({ title: "QR Saved", description: `"${newSavedQr.name}" has been saved.` });
     }
     
-    setSavedQrs(updatedQrs);
+    setSavedQrs(updatedQrs.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     localStorage.setItem(LOCAL_STORAGE_MY_QRS_KEY, JSON.stringify(updatedQrs));
     setIsSaveQrModalOpen(false);
     setNewQrName('');
@@ -695,28 +748,28 @@ export default function QrCodeGenerator() {
     const qrToLoad = savedQrs.find(qr => qr.id === id);
     if (qrToLoad) {
       setQrValue(qrToLoad.qrValue);
-      form.setValue('content', qrToLoad.qrValue);
+      form.setValue('content', qrToLoad.qrValue, { shouldValidate: true, shouldDirty: true });
       setCustomization(qrToLoad.customization);
       if (qrToLoad.customization.imageSrc) {
         setUploadedImagePreview(qrToLoad.customization.imageSrc);
       } else {
         setUploadedImagePreview(null);
       }
-      setActiveTab('settings'); // Switch to content/settings tab after loading
+      setActiveTab('settings'); 
       toast({ title: "QR Loaded", description: `"${qrToLoad.name}" loaded into editor.` });
     }
   };
   
   const handleDeleteQr = () => {
     if (!qrToDeleteId) return;
+    const qrName = savedQrs.find(qr => qr.id === qrToDeleteId)?.name || "Selected QR";
     const updatedQrs = savedQrs.filter(qr => qr.id !== qrToDeleteId);
     setSavedQrs(updatedQrs);
     localStorage.setItem(LOCAL_STORAGE_MY_QRS_KEY, JSON.stringify(updatedQrs));
-    toast({ title: "QR Deleted", description: "The QR code has been deleted from My QRs." });
-    setQrToDeleteId(null); // Close the dialog
+    toast({ title: "QR Deleted", description: `"${qrName}" has been removed.` });
+    setQrToDeleteId(null); 
   };
 
-  // Brand Kit Functions
   const openSaveBrandKitModal = (kitToEdit?: BrandKit) => {
     if (kitToEdit) {
       setBrandKitToEdit(kitToEdit);
@@ -730,13 +783,10 @@ export default function QrCodeGenerator() {
 
   const handleSaveBrandKit = () => {
     if (!newBrandKitName.trim()) {
-      toast({ title: "Error", description: "Brand kit name cannot be empty.", variant: "destructive" });
+      toast({ title: "Name Required", description: "Brand kit name cannot be empty.", variant: "destructive" });
       return;
     }
-    // Omit 'size' from current customization to create BrandKitCustomizationInput
     const { size, ...brandKitCustomizationData } = customization; 
-
-    // Ensure all fields for BrandKitCustomizationInput are present, using defaults if necessary
     const completeBrandKitCustomization: BrandKitCustomizationInput = {
         fgColor: brandKitCustomizationData.fgColor || defaultCustomization.fgColor,
         bgColor: brandKitCustomizationData.bgColor || defaultCustomization.bgColor,
@@ -747,11 +797,10 @@ export default function QrCodeGenerator() {
         imageExcavate: brandKitCustomizationData.imageExcavate !== undefined ? brandKitCustomizationData.imageExcavate : defaultCustomization.imageExcavate,
     };
 
-
     let updatedKits: BrandKit[];
     if (brandKitToEdit) {
       updatedKits = brandKits.map(kit =>
-        kit.id === brandKitToEdit.id ? { ...kit, name: newBrandKitName.trim(), customization: completeBrandKitCustomization } : kit
+        kit.id === brandKitToEdit.id ? { ...kit, name: newBrandKitName.trim(), customization: completeBrandKitCustomization, createdAt: new Date().toISOString() } : kit
       );
       toast({ title: "Brand Kit Updated", description: `"${newBrandKitName.trim()}" has been updated.` });
     } else {
@@ -761,11 +810,11 @@ export default function QrCodeGenerator() {
         customization: completeBrandKitCustomization,
         createdAt: new Date().toISOString(),
       };
-      updatedKits = [...brandKits, newKit];
+      updatedKits = [newKit, ...brandKits];
       toast({ title: "Brand Kit Saved", description: `"${newKit.name}" has been saved.` });
     }
 
-    setBrandKits(updatedKits);
+    setBrandKits(updatedKits.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     localStorage.setItem(LOCAL_STORAGE_BRAND_KITS_KEY, JSON.stringify(updatedKits));
     setIsSaveBrandKitModalOpen(false);
     setNewBrandKitName('');
@@ -773,34 +822,36 @@ export default function QrCodeGenerator() {
   };
 
   const handleApplyBrandKit = (kitCustomization: BrandKitCustomizationInput) => {
+    const kitName = brandKits.find(kit => kit.customization === kitCustomization)?.name || "Selected kit";
     setCustomization(prev => ({
-      ...prev, // Keep existing size
-      ...kitCustomization // Apply all other brand kit styles
+      ...prev, 
+      ...kitCustomization 
     }));
     if (kitCustomization.imageSrc) {
       setUploadedImagePreview(kitCustomization.imageSrc);
     } else {
       setUploadedImagePreview(null);
     }
-    toast({ title: "Brand Kit Applied", description: "Visual styles updated." });
+    toast({ title: "Brand Kit Applied", description: `Styles from "${kitName}" applied.` });
   };
 
   const handleDeleteBrandKit = () => {
     if (!brandKitToDeleteId) return;
+    const kitName = brandKits.find(kit => kit.id === brandKitToDeleteId)?.name || "Selected kit";
     const updatedKits = brandKits.filter(kit => kit.id !== brandKitToDeleteId);
     setBrandKits(updatedKits);
     localStorage.setItem(LOCAL_STORAGE_BRAND_KITS_KEY, JSON.stringify(updatedKits));
-    toast({ title: "Brand Kit Deleted" });
-    setBrandKitToDeleteId(null); // Close the dialog
+    toast({ title: "Brand Kit Deleted", description: `"${kitName}" has been removed.` });
+    setBrandKitToDeleteId(null); 
   };
 
 
   return (
+    <TooltipProvider>
     <div className="flex flex-1 w-full h-full bg-background">
       <EditorLeftSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Top Action Bar */}
         <div className="p-3 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
           <h1 className="text-xl font-semibold">QR Code Editor</h1>
           <div className="flex items-center space-x-2">
@@ -811,29 +862,25 @@ export default function QrCodeGenerator() {
           </div>
         </div>
 
-        {/* Main Editor Area (Canvas + Properties Panel) */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-7 gap-4 p-4 overflow-y-auto">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-7 gap-4 p-4 overflow-hidden"> {/* Changed to overflow-hidden, scroll on sub-panels */}
           
-          {/* Center Canvas Area */}
-          <div className="lg:col-span-4 xl:col-span-5 bg-muted/20 p-4 md:p-6 rounded-lg flex flex-col items-center justify-center shadow-inner relative">
-            {/* QR Code Preview takes up available space in its container */}
-            <div className="w-full max-w-md p-4 bg-card rounded-lg shadow-xl"> {/* Added a card for better visual grouping of preview */}
+          <div className="lg:col-span-4 xl:col-span-5 bg-muted/20 p-4 md:p-6 rounded-lg flex flex-col items-center justify-center shadow-inner relative overflow-auto">
+            <div className="w-full max-w-md p-4 bg-card rounded-lg shadow-xl">
                <QrCodePreview
                 ref={qrPreviewRef}
                 value={qrValue}
-                size={editorPreviewSize} // Dynamic preview size
+                size={editorPreviewSize} 
                 fgColor={customization.fgColor}
                 bgColor={customization.bgColor}
                 level={customization.level}
-                includeMargin={!!customization.margin} // Ensure boolean
+                includeMargin={!!customization.margin} 
                 imageSettings={imageSettingsForPreview()}
               />
             </div>
           </div>
 
-          {/* Right Properties Panel */}
-          <aside className="lg:col-span-3 xl:col-span-2 space-y-6 overflow-y-auto p-1">
-            {/* Conditional Rendering of Panels */}
+          <aside className="lg:col-span-3 xl:col-span-2 flex flex-col overflow-hidden"> {/* Changed to flex flex-col */}
+            <ScrollArea className="flex-grow p-1"> {/* ScrollArea wraps the conditional panels */}
             {activeTab === 'settings' && <SettingsPanel form={form} onSubmitContent={onSubmitContent} />}
             {activeTab === 'aiAssist' && <AiAssistPanel onSuggestionSelect={handleAiSuggestionSelect} />}
             {activeTab === 'elements' && <ElementsPanel options={customization} onOptionsChange={handleCustomizationChange} />}
@@ -868,15 +915,15 @@ export default function QrCodeGenerator() {
                 toast={toast}
               />
             }
-            {activeTab === 'text' && <PlaceholderPanel title="Text Tools" description="Add and customize text overlays on your QR code." />}
-            {activeTab === 'uploads' && <PlaceholderPanel title="Uploads" description="Manage your uploaded assets." />}
-            {activeTab === 'advanced' && <PlaceholderPanel title="Advanced Settings" description="Fine-tune advanced QR code parameters." />}
+            {activeTab === 'text' && <PlaceholderPanel title="Text Tools" description="Add and customize text overlays on your QR code." icon={Edit} />}
+            {activeTab === 'uploads' && <PlaceholderPanel title="My Uploads" description="Manage your uploaded assets." icon={UploadCloud}/>}
+            {activeTab === 'advanced' && <PlaceholderPanel title="Advanced Settings" description="Fine-tune advanced QR code parameters." icon={Wand2} />}
+            </ScrollArea>
           </aside>
         </div>
       </main>
 
-      {/* Save QR Modal */}
-      <Dialog open={isSaveQrModalOpen} onOpenChange={setIsSaveQrModalOpen}>
+      <Dialog open={isSaveQrModalOpen} onOpenChange={(isOpen) => { setIsSaveQrModalOpen(isOpen); if (!isOpen) { setQrToEdit(null); setNewQrName(''); }}}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{qrToEdit ? "Edit & Update QR Code" : "Save QR Code Configuration"}</DialogTitle>
@@ -893,34 +940,34 @@ export default function QrCodeGenerator() {
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="outline" onClick={() => { setQrToEdit(null); setNewQrName('');}}>Cancel</Button>
+              <Button variant="outline">Cancel</Button>
             </DialogClose>
             <Button onClick={handleSaveQrConfig}>{qrToEdit ? "Update" : "Save"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete QR Confirmation Dialog */}
       <AlertDialog open={!!qrToDeleteId} onOpenChange={(open) => !open && setQrToDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete QR Configuration?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete this QR code configuration from "My QRs".
+              This action cannot be undone. This will permanently delete the QR configuration
+              "{savedQrs.find(qr => qr.id === qrToDeleteId)?.name || 'this QR code'}".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setQrToDeleteId(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteQr}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteQr} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Save Brand Kit Modal */}
-      <Dialog open={isSaveBrandKitModalOpen} onOpenChange={setIsSaveBrandKitModalOpen}>
+      <Dialog open={isSaveBrandKitModalOpen} onOpenChange={(isOpen) => { setIsSaveBrandKitModalOpen(isOpen); if (!isOpen) { setBrandKitToEdit(null); setNewBrandKitName(''); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{brandKitToEdit ? "Edit & Update Brand Kit" : "Save Brand Kit"}</DialogTitle>
+            <CardDescription className="pt-2">Saves current colors, embedded image (if any), error correction level, and margin settings. QR content and size are not part of a brand kit.</CardDescription>
           </DialogHeader>
           <div className="py-4">
             <Label htmlFor="brandKitName">Brand Kit Name</Label>
@@ -934,29 +981,31 @@ export default function QrCodeGenerator() {
           </div>
           <DialogFooter>
             <DialogClose asChild>
-              <Button variant="outline" onClick={() => { setBrandKitToEdit(null); setNewBrandKitName(''); }}>Cancel</Button>
+              <Button variant="outline">Cancel</Button>
             </DialogClose>
             <Button onClick={handleSaveBrandKit}>{brandKitToEdit ? "Update Kit" : "Save Kit"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Brand Kit Confirmation Dialog */}
       <AlertDialog open={!!brandKitToDeleteId} onOpenChange={(open) => !open && setBrandKitToDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Brand Kit?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete this brand kit.
+              This action cannot be undone. This will permanently delete the brand kit
+              "{brandKits.find(kit => kit.id === brandKitToDeleteId)?.name || 'this brand kit'}".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setBrandKitToDeleteId(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteBrandKit}>Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteBrandKit} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
     </div>
+    </TooltipProvider>
   );
 }
+
