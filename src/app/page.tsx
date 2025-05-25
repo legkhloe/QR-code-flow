@@ -8,7 +8,7 @@ import { appName } from '@/lib/config';
 
 export default function HomePage() {
   return (
-    <div className="flex flex-col items-center justify-center space-y-12">
+    <div className="flex flex-col items-center justify-center space-y-12 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-background via-slate-950 to-black">
       <section className="text-center py-16 md:py-24 lg:py-32">
         <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tighter mb-6">
           Welcome to <span className="text-primary">{appName}</span>
