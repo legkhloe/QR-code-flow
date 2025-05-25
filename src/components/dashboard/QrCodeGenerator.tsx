@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import type { ChangeEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -29,9 +29,11 @@ import { useSearchParams } from 'next/navigation';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Info, ImageIcon, XCircle, Save, Trash2, Edit, QrCode as QrCodeIcon, FolderKanban, Award, Palette } from 'lucide-react';
+import { Info, ImageIcon, XCircle, Save, Trash2, Edit, QrCode as QrCodeIcon, FolderKanban, Award, Palette, Wand2, Loader2, Lightbulb } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { UseFormReturn } from 'react-hook-form';
+import { generateLogoForQrCode, type GenerateLogoInput } from '@/ai/flows/generate-logo-flow';
+import { Separator } from '@/components/ui/separator';
 
 
 const LOCAL_STORAGE_MY_QRS_KEY = 'qrCodeForgeMyQRs';
@@ -45,7 +47,7 @@ const defaultCustomization: CustomizationOptionsInput = {
   margin: true,
   imageSrc: '',
   imageDisplaySize: 20, 
-  imageExcavate: false,
+  imageExcavate: false, // Default changed to false
 };
 
 interface SettingsPanelProps {
@@ -113,25 +115,57 @@ interface MediaPanelProps {
   customization: CustomizationOptionsInput;
   handleCustomizationChange: (newOptions: Partial<CustomizationOptionsInput>) => void;
   uploadedImagePreview: string | null;
+  setUploadedImagePreview: (src: string | null) => void;
   handleImageUpload: (event: ChangeEvent<HTMLInputElement>) => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
   handleRemoveImage: () => void;
+  toast: ({ title, description, variant }: { title: string; description?: string; variant?: "default" | "destructive" | null | undefined; }) => void;
 }
 const MediaPanel: React.FC<MediaPanelProps> = ({ 
   customization, 
   handleCustomizationChange, 
   uploadedImagePreview, 
+  setUploadedImagePreview,
   handleImageUpload, 
   fileInputRef, 
-  handleRemoveImage 
-}) => (
+  handleRemoveImage,
+  toast,
+}) => {
+  const [aiLogoPrompt, setAiLogoPrompt] = useState('');
+  const [isGeneratingLogo, setIsGeneratingLogo] = useState(false);
+
+  const handleGenerateLogo = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!aiLogoPrompt.trim()) {
+      toast({ title: "Prompt needed", description: "Please enter a description for the logo.", variant: "default"});
+      return;
+    }
+    setIsGeneratingLogo(true);
+    try {
+      const result = await generateLogoForQrCode({ textPrompt: aiLogoPrompt });
+      if (result.imageDataUri) {
+        handleCustomizationChange({ imageSrc: result.imageDataUri });
+        setUploadedImagePreview(result.imageDataUri);
+        toast({ title: "AI Logo Generated!", description: "The new logo has been embedded."});
+      } else {
+        throw new Error("AI did not return an image.");
+      }
+    } catch (error: any) {
+      console.error("AI Logo Generation error:", error);
+      toast({ title: "AI Logo Error", description: error.message || "Failed to generate logo.", variant: "destructive"});
+    } finally {
+      setIsGeneratingLogo(false);
+    }
+  };
+
+  return (
   <Card className="shadow-lg">
     <CardHeader>
       <CardTitle className="flex items-center">
         <ImageIcon className="mr-2 h-5 w-5 text-primary" />
         Media &amp; Logos
       </CardTitle>
-      <CardDescription>Embed an image or logo into your QR code. Upload an image file (max 1MB).</CardDescription>
+      <CardDescription>Embed an image or logo. Upload one or generate with AI.</CardDescription>
     </CardHeader>
     <CardContent className="space-y-6">
       <div>
@@ -139,25 +173,33 @@ const MediaPanel: React.FC<MediaPanelProps> = ({
         <Input
           id="imageUpload"
           type="file"
-          accept="image/*"
+          accept="image/png, image/jpeg, image/svg+xml" // More specific
           onChange={handleImageUpload}
           ref={fileInputRef}
           className="mt-1 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+          disabled={isGeneratingLogo}
         />
-         <p className="text-xs text-muted-foreground mt-1">Recommended: Square logos, PNG/SVG for best results.</p>
+         <p className="text-xs text-muted-foreground mt-1">Recommended: Square logos, PNG/SVG for transparency (max 1MB).</p>
       </div>
 
       {uploadedImagePreview && (
-        <div className="space-y-2">
-          <Label>Image Preview:</Label>
+        <div className="space-y-2 pt-4 border-t mt-4">
+            <div className="flex justify-between items-center">
+                <Label>Image Preview:</Label>
+                 <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRemoveImage}
+                    disabled={isGeneratingLogo}
+                    className="text-xs"
+                    >
+                    <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                    Remove Image
+                </Button>
+            </div>
           <div className="relative w-24 h-24 border rounded-md overflow-hidden mx-auto bg-muted/20">
             <img src={uploadedImagePreview} alt="Uploaded Preview" className="object-contain w-full h-full" />
           </div>
-        </div>
-      )}
-      
-      {customization.imageSrc && (
-        <div className="space-y-4 pt-4 border-t mt-4">
           <div>
             <Label htmlFor="imageDisplaySize">Image Size ({customization.imageDisplaySize || 20}%)</Label>
             <Slider
@@ -168,6 +210,7 @@ const MediaPanel: React.FC<MediaPanelProps> = ({
               value={[customization.imageDisplaySize || 20]}
               onValueChange={(value) => handleCustomizationChange({ imageDisplaySize: value[0] })}
               className="mt-1"
+              disabled={isGeneratingLogo || !customization.imageSrc}
             />
              <p className="text-xs text-muted-foreground mt-1">Percentage of QR code width/height.</p>
           </div>
@@ -177,24 +220,41 @@ const MediaPanel: React.FC<MediaPanelProps> = ({
               id="imageExcavate"
               checked={!!customization.imageExcavate}
               onCheckedChange={(checked) => handleCustomizationChange({ imageExcavate: checked })}
+              disabled={isGeneratingLogo || !customization.imageSrc}
             />
             <Label htmlFor="imageExcavate">Clear QR Behind Image (Excavate)</Label>
           </div>
-          
-          <Button 
-              variant="outline"
-              size="sm"
-              onClick={handleRemoveImage}
-              className="w-full"
-            >
-              <XCircle className="mr-2 h-4 w-4" />
-              Remove Image
-          </Button>
         </div>
       )}
+      
+      <Separator />
+
+      <div>
+        <form onSubmit={handleGenerateLogo} className="space-y-3">
+          <Label htmlFor="aiLogoPrompt">Or Generate Logo with AI</Label>
+          <Textarea
+            id="aiLogoPrompt"
+            placeholder="e.g., 'a simple blue flame icon', 'green leaf silhouette'"
+            value={aiLogoPrompt}
+            onChange={(e) => setAiLogoPrompt(e.target.value)}
+            rows={2}
+            disabled={isGeneratingLogo}
+          />
+          <Button type="submit" className="w-full" disabled={isGeneratingLogo}>
+            {isGeneratingLogo ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Wand2 className="mr-2 h-4 w-4" />
+            )}
+            Generate Logo
+          </Button>
+           <p className="text-xs text-muted-foreground mt-1">AI will attempt to generate a small, iconic logo.</p>
+        </form>
+      </div>
     </CardContent>
   </Card>
-);
+  );
+};
 
 interface MyQrsPanelProps {
   savedQrs: SavedQrConfig[];
@@ -262,7 +322,7 @@ interface BrandingPanelProps {
   openSaveBrandKitModal: (kitToEdit?: BrandKit) => void;
   handleApplyBrandKit: (kitCustomization: BrandKitCustomizationInput) => void;
   setBrandKitToDeleteId: (id: string | null) => void;
-  customization: CustomizationOptionsInput; // Needed to save current style as new kit
+  customization: CustomizationOptionsInput; 
   toast: ({ title, description, variant }: { title: string; description?: string; variant?: "default" | "destructive" | null | undefined; }) => void;
 }
 const BrandingPanel: React.FC<BrandingPanelProps> = ({ brandKits, openSaveBrandKitModal, handleApplyBrandKit, setBrandKitToDeleteId }) => (
@@ -449,6 +509,7 @@ export default function QrCodeGenerator() {
     if (imageExcavate !== null) {
         newCustomization.imageExcavate = imageExcavate === 'true';
     } else if (newCustomization.imageSrc) { 
+        // If imageSrc is set but imageExcavate is not, apply default
         newCustomization.imageExcavate = defaultCustomization.imageExcavate;
     }
     
@@ -478,7 +539,7 @@ export default function QrCodeGenerator() {
 
   const watchContent = form.watch('content');
   useEffect(() => {
-    if (form.formState.isValid && watchContent && watchContent !== qrValue) {
+    if (form.formState.isDirty && form.formState.isValid && watchContent && watchContent !== qrValue) {
       setQrValue(watchContent);
     }
   }, [watchContent, qrValue, form.formState.isDirty, form.formState.isValid]);
@@ -498,7 +559,10 @@ export default function QrCodeGenerator() {
 
   const handleAiSuggestionSelect = (suggestion: string) => {
     form.setValue('content', suggestion, { shouldValidate: true });
-    setQrValue(suggestion); 
+    // Trigger reactive update for qrValue if content is valid
+    if (QrContentSchema.safeParse({ content: suggestion }).success) {
+        setQrValue(suggestion);
+    }
     toast({
       title: "Content Updated",
       description: "QR code content set from AI suggestion.",
@@ -535,7 +599,7 @@ export default function QrCodeGenerator() {
         });
         return;
       }
-      if (file.size > 1024 * 1024) { 
+      if (file.size > 1 * 1024 * 1024) { // 1MB limit
         toast({
           title: "File Too Large",
           description: "Image size should not exceed 1MB.",
@@ -564,6 +628,7 @@ export default function QrCodeGenerator() {
       };
       reader.readAsDataURL(file);
     }
+    // Reset file input to allow uploading the same file again if removed
     if (fileInputRef.current) {
       fileInputRef.current.value = ""; 
     }
@@ -587,7 +652,8 @@ export default function QrCodeGenerator() {
       setNewQrName(qrToEditConfig.name);
     } else {
       setQrToEdit(null);
-      setNewQrName(qrValue.substring(0, 30) || `QR ${new Date().toLocaleTimeString()}`);
+      // Default name suggestion
+      setNewQrName(qrValue.substring(0, 30).replace(/^https?:\/\//, '') || `QR ${new Date().toLocaleTimeString()}`);
     }
     setIsSaveQrModalOpen(true);
   };
@@ -600,11 +666,13 @@ export default function QrCodeGenerator() {
 
     let updatedQrs: SavedQrConfig[];
     if (qrToEdit) { 
+      // Update existing QR
       updatedQrs = savedQrs.map(qr => 
         qr.id === qrToEdit.id ? { ...qr, name: newQrName.trim(), qrValue: qrValue, customization: customization } : qr
       );
       toast({ title: "QR Updated", description: `"${newQrName.trim()}" has been updated.` });
     } else { 
+      // Save new QR
       const newSavedQr: SavedQrConfig = {
         id: Date.now().toString(),
         name: newQrName.trim(),
@@ -634,7 +702,7 @@ export default function QrCodeGenerator() {
       } else {
         setUploadedImagePreview(null);
       }
-      setActiveTab('settings');
+      setActiveTab('settings'); // Switch to content/settings tab after loading
       toast({ title: "QR Loaded", description: `"${qrToLoad.name}" loaded into editor.` });
     }
   };
@@ -645,9 +713,10 @@ export default function QrCodeGenerator() {
     setSavedQrs(updatedQrs);
     localStorage.setItem(LOCAL_STORAGE_MY_QRS_KEY, JSON.stringify(updatedQrs));
     toast({ title: "QR Deleted", description: "The QR code has been deleted from My QRs." });
-    setQrToDeleteId(null);
+    setQrToDeleteId(null); // Close the dialog
   };
 
+  // Brand Kit Functions
   const openSaveBrandKitModal = (kitToEdit?: BrandKit) => {
     if (kitToEdit) {
       setBrandKitToEdit(kitToEdit);
@@ -664,8 +733,10 @@ export default function QrCodeGenerator() {
       toast({ title: "Error", description: "Brand kit name cannot be empty.", variant: "destructive" });
       return;
     }
+    // Omit 'size' from current customization to create BrandKitCustomizationInput
     const { size, ...brandKitCustomizationData } = customization; 
 
+    // Ensure all fields for BrandKitCustomizationInput are present, using defaults if necessary
     const completeBrandKitCustomization: BrandKitCustomizationInput = {
         fgColor: brandKitCustomizationData.fgColor || defaultCustomization.fgColor,
         bgColor: brandKitCustomizationData.bgColor || defaultCustomization.bgColor,
@@ -703,8 +774,8 @@ export default function QrCodeGenerator() {
 
   const handleApplyBrandKit = (kitCustomization: BrandKitCustomizationInput) => {
     setCustomization(prev => ({
-      ...prev, 
-      ...kitCustomization 
+      ...prev, // Keep existing size
+      ...kitCustomization // Apply all other brand kit styles
     }));
     if (kitCustomization.imageSrc) {
       setUploadedImagePreview(kitCustomization.imageSrc);
@@ -720,7 +791,7 @@ export default function QrCodeGenerator() {
     setBrandKits(updatedKits);
     localStorage.setItem(LOCAL_STORAGE_BRAND_KITS_KEY, JSON.stringify(updatedKits));
     toast({ title: "Brand Kit Deleted" });
-    setBrandKitToDeleteId(null);
+    setBrandKitToDeleteId(null); // Close the dialog
   };
 
 
@@ -729,6 +800,7 @@ export default function QrCodeGenerator() {
       <EditorLeftSidebar activeTab={activeTab} setActiveTab={setActiveTab} />
 
       <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Top Action Bar */}
         <div className="p-3 border-b border-border flex items-center justify-between sticky top-0 bg-card z-10">
           <h1 className="text-xl font-semibold">QR Code Editor</h1>
           <div className="flex items-center space-x-2">
@@ -739,24 +811,29 @@ export default function QrCodeGenerator() {
           </div>
         </div>
 
+        {/* Main Editor Area (Canvas + Properties Panel) */}
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-7 gap-4 p-4 overflow-y-auto">
           
+          {/* Center Canvas Area */}
           <div className="lg:col-span-4 xl:col-span-5 bg-muted/20 p-4 md:p-6 rounded-lg flex flex-col items-center justify-center shadow-inner relative">
-            <div className="w-full max-w-md p-4 bg-card rounded-lg shadow-xl">
+            {/* QR Code Preview takes up available space in its container */}
+            <div className="w-full max-w-md p-4 bg-card rounded-lg shadow-xl"> {/* Added a card for better visual grouping of preview */}
                <QrCodePreview
                 ref={qrPreviewRef}
                 value={qrValue}
-                size={editorPreviewSize}
+                size={editorPreviewSize} // Dynamic preview size
                 fgColor={customization.fgColor}
                 bgColor={customization.bgColor}
                 level={customization.level}
-                includeMargin={!!customization.margin}
+                includeMargin={!!customization.margin} // Ensure boolean
                 imageSettings={imageSettingsForPreview()}
               />
             </div>
           </div>
 
+          {/* Right Properties Panel */}
           <aside className="lg:col-span-3 xl:col-span-2 space-y-6 overflow-y-auto p-1">
+            {/* Conditional Rendering of Panels */}
             {activeTab === 'settings' && <SettingsPanel form={form} onSubmitContent={onSubmitContent} />}
             {activeTab === 'aiAssist' && <AiAssistPanel onSuggestionSelect={handleAiSuggestionSelect} />}
             {activeTab === 'elements' && <ElementsPanel options={customization} onOptionsChange={handleCustomizationChange} />}
@@ -765,9 +842,11 @@ export default function QrCodeGenerator() {
                 customization={customization} 
                 handleCustomizationChange={handleCustomizationChange}
                 uploadedImagePreview={uploadedImagePreview}
+                setUploadedImagePreview={setUploadedImagePreview}
                 handleImageUpload={handleImageUpload}
                 fileInputRef={fileInputRef}
                 handleRemoveImage={handleRemoveImage}
+                toast={toast}
               />
             }
             {activeTab === 'myQrs' && 
@@ -796,6 +875,7 @@ export default function QrCodeGenerator() {
         </div>
       </main>
 
+      {/* Save QR Modal */}
       <Dialog open={isSaveQrModalOpen} onOpenChange={setIsSaveQrModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -820,6 +900,7 @@ export default function QrCodeGenerator() {
         </DialogContent>
       </Dialog>
 
+      {/* Delete QR Confirmation Dialog */}
       <AlertDialog open={!!qrToDeleteId} onOpenChange={(open) => !open && setQrToDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -835,6 +916,7 @@ export default function QrCodeGenerator() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Save Brand Kit Modal */}
       <Dialog open={isSaveBrandKitModalOpen} onOpenChange={setIsSaveBrandKitModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -859,6 +941,7 @@ export default function QrCodeGenerator() {
         </DialogContent>
       </Dialog>
 
+      {/* Delete Brand Kit Confirmation Dialog */}
       <AlertDialog open={!!brandKitToDeleteId} onOpenChange={(open) => !open && setBrandKitToDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -877,5 +960,3 @@ export default function QrCodeGenerator() {
     </div>
   );
 }
-
-    
